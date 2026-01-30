@@ -80,8 +80,9 @@ export interface InstanceSettings {
 }
 
 export interface ProfilePictureResponse {
-  wpiUrl?: string;
+  wuid?: string;
   profilePictureUrl?: string;
+  wpiUrl?: string;
   url?: string;
 }
 
