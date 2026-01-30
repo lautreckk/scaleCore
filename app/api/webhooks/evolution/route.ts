@@ -295,7 +295,9 @@ async function uploadBufferToStorage(
   tenantId: string
 ): Promise<string | null> {
   try {
-    const extension = EXTENSION_MAP[mimetype] || mimetype.split("/")[1] || "bin";
+    // Clean mimetype - remove codec info like "; codecs=opus"
+    const cleanMimetype = mimetype.split(";")[0].trim();
+    const extension = EXTENSION_MAP[cleanMimetype] || cleanMimetype.split("/")[1] || "bin";
     const fileName = `${tenantId}/${Date.now()}-${messageId}.${extension}`;
 
     // Upload to Supabase Storage
@@ -691,12 +693,19 @@ export async function POST(request: NextRequest) {
               .from("chats")
               .update(updatePayload)
               .eq("id", chat.id)
-              .select();
+              .select("id, last_message, last_message_at, unread_count");
 
             if (updateError) {
               console.error("[Chat Update] Error:", updateError);
             } else {
-              console.log("[Chat Update] Success, result:", JSON.stringify(updateResult));
+              console.log("[Chat Update] Success, returned:", JSON.stringify(updateResult));
+              // Verify the update actually happened
+              if (updateResult && updateResult[0]) {
+                const saved = updateResult[0];
+                if (saved.last_message !== previewText) {
+                  console.error(`[Chat Update] MISMATCH! Expected "${previewText}" but got "${saved.last_message}"`);
+                }
+              }
             }
           }
 
