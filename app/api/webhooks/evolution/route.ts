@@ -598,20 +598,60 @@ export async function POST(request: NextRequest) {
         } else {
           // Update existing chat
           const previewText = getLastMessagePreview(messageType, content);
-          console.log(`[Chat Update] chatId=${chat.id}, preview="${previewText}"`);
+          console.log(`[Chat Update] chatId=${chat.id}, preview="${previewText}", fromMe=${fromMe}`);
 
-          const { error: updateError } = await supabase
-            .from("chats")
-            .update({
-              contact_name: messageData.pushName || undefined,
-              last_message: previewText,
-              last_message_at: new Date().toISOString(),
-              unread_count: fromMe ? 0 : supabase.rpc("increment", { x: 1 }),
-            })
-            .eq("id", chat.id);
+          // Build update object
+          const updateData: Record<string, unknown> = {
+            last_message: previewText,
+            last_message_at: new Date().toISOString(),
+          };
 
-          if (updateError) {
-            console.error("[Chat Update] Error:", updateError);
+          // Only update contact_name if we have one
+          if (messageData.pushName) {
+            updateData.contact_name = messageData.pushName;
+          }
+
+          // For unread_count, we need to handle increment separately
+          if (fromMe) {
+            updateData.unread_count = 0;
+            const { error: updateError } = await supabase
+              .from("chats")
+              .update(updateData)
+              .eq("id", chat.id);
+
+            if (updateError) {
+              console.error("[Chat Update] Error:", updateError);
+            } else {
+              console.log("[Chat Update] Success (fromMe=true)");
+            }
+          } else {
+            // Use raw SQL to increment unread_count
+            const { error: updateError } = await supabase.rpc("increment_unread_and_update_chat", {
+              p_chat_id: chat.id,
+              p_last_message: previewText,
+              p_last_message_at: new Date().toISOString(),
+              p_contact_name: messageData.pushName || null,
+            });
+
+            if (updateError) {
+              console.error("[Chat Update] RPC Error:", updateError);
+              // Fallback to simple update without increment
+              const { error: fallbackError } = await supabase
+                .from("chats")
+                .update({
+                  ...updateData,
+                  unread_count: 1, // Just set to 1 as fallback
+                })
+                .eq("id", chat.id);
+
+              if (fallbackError) {
+                console.error("[Chat Update] Fallback Error:", fallbackError);
+              } else {
+                console.log("[Chat Update] Fallback Success");
+              }
+            } else {
+              console.log("[Chat Update] RPC Success (fromMe=false)");
+            }
           }
 
           // Fetch profile picture if not already set
