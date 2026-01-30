@@ -561,6 +561,9 @@ export async function POST(request: NextRequest) {
             .limit(1)
             .single();
 
+          const insertPreview = getLastMessagePreview(messageType, content);
+          console.log(`[Chat Insert] preview="${insertPreview}", messageType=${messageType}`);
+
           const { data: newChat, error: chatError } = await supabase
             .from("chats")
             .insert({
@@ -569,7 +572,7 @@ export async function POST(request: NextRequest) {
               remote_jid: remoteJid,
               contact_name: messageData.pushName || null,
               lead_id: lead?.id || null,
-              last_message: getLastMessagePreview(messageType, content),
+              last_message: insertPreview,
               last_message_at: new Date().toISOString(),
               unread_count: fromMe ? 0 : 1,
             })
@@ -577,9 +580,10 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (chatError) {
-            console.error("Error creating chat:", chatError);
+            console.error("[Chat Insert] Error:", chatError);
             break;
           }
+          console.log(`[Chat Insert] Success, id=${newChat?.id}`);
           chat = newChat;
 
           // Fetch profile picture (wait for it to complete)
@@ -593,15 +597,22 @@ export async function POST(request: NextRequest) {
           }
         } else {
           // Update existing chat
-          await supabase
+          const previewText = getLastMessagePreview(messageType, content);
+          console.log(`[Chat Update] chatId=${chat.id}, preview="${previewText}"`);
+
+          const { error: updateError } = await supabase
             .from("chats")
             .update({
               contact_name: messageData.pushName || undefined,
-              last_message: getLastMessagePreview(messageType, content),
+              last_message: previewText,
               last_message_at: new Date().toISOString(),
               unread_count: fromMe ? 0 : supabase.rpc("increment", { x: 1 }),
             })
             .eq("id", chat.id);
+
+          if (updateError) {
+            console.error("[Chat Update] Error:", updateError);
+          }
 
           // Fetch profile picture if not already set
           if (instance.evolution_config_id) {
