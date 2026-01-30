@@ -1,36 +1,143 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ScaleForce
+
+B2B SaaS platform for lead management and WhatsApp marketing automation.
+
+## Features
+
+- **Multi-tenant Architecture**: Super Admin, Tenants, and Tenant Users
+- **Lead Management**: Custom webhooks, field mapping, lead scoring
+- **WhatsApp Integration**: Evolution API v2.3 with multi-instance support
+- **Campaign Management**: Mass messaging with real-time tracking
+- **Automations**: Event-based triggers and scheduled actions
+- **Wallet System**: Credit-based messaging (R$ 0.12 per message)
+- **Mobile-First Design**: Red (#DC2626) and Black (#000000) dark theme
+
+## Tech Stack
+
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Supabase (PostgreSQL + Auth + Realtime)
+- **WhatsApp**: Evolution API v2.3
+- **Hosting**: Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
+- Node.js 18+
+- Supabase account
+- Evolution API instance
+
+### Installation
+
+1. Clone the repository:
+\`\`\`bash
+git clone <repo-url>
+cd scaleforce
+\`\`\`
+
+2. Install dependencies:
+\`\`\`bash
+npm install
+\`\`\`
+
+3. Copy environment variables:
+\`\`\`bash
+cp .env.example .env.local
+\`\`\`
+
+4. Configure your environment variables in \`.env.local\`
+
+5. Run the development server:
+\`\`\`bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+\`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The database schema is already applied via Supabase MCP. It includes:
 
-## Learn More
+### Tables
+- \`super_admins\` - Platform administrators
+- \`tenants\` - Customer organizations
+- \`tenant_users\` - Users within tenants
+- \`lead_sources\` - Webhook configurations
+- \`leads\` - Lead/contact records
+- \`lead_notes\` - Notes on leads
+- \`lead_activities\` - Activity timeline
+- \`whatsapp_instances\` - WhatsApp connections
+- \`chats\` - Chat conversations
+- \`messages\` - Chat messages
+- \`campaigns\` - Mass messaging campaigns
+- \`campaign_sends\` - Individual message sends
+- \`contact_lists\` - Lead groupings
+- \`contact_list_members\` - List memberships
+- \`automations\` - Automation rules
+- \`automation_executions\` - Execution logs
+- \`wallets\` - Credit balances
+- \`transactions\` - Credit transactions
+- \`platform_metrics\` - Platform analytics
+- \`audit_logs\` - Action audit trail
+- \`webhook_events\` - Webhook logs
 
-To learn more about Next.js, take a look at the following resources:
+### Row Level Security
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+All tables have RLS enabled with policies for:
+- Super admins: Full access to all data
+- Tenant users: Access only to their tenant's data
+- Role-based permissions within tenants
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API Routes
 
-## Deploy on Vercel
+### Lead Webhook
+\`POST /api/webhook/[source_id]\`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Receives leads from external sources with HMAC signature validation.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Evolution Webhook
+\`POST /api/webhooks/evolution\`
+
+Receives WhatsApp events from Evolution API:
+- QRCODE_UPDATED
+- CONNECTION_UPDATE
+- MESSAGES_UPSERT
+- MESSAGES_UPDATE
+- SEND_MESSAGE
+
+## Deployment
+
+### Vercel
+
+1. Connect your repository to Vercel
+2. Configure environment variables
+3. Deploy
+
+### Environment Variables for Production
+
+Required environment variables:
+- \`NEXT_PUBLIC_SUPABASE_URL\`
+- \`NEXT_PUBLIC_SUPABASE_ANON_KEY\`
+- \`SUPABASE_SERVICE_ROLE_KEY\`
+- \`NEXT_PUBLIC_APP_URL\`
+- \`EVOLUTION_API_URL\`
+- \`EVOLUTION_API_KEY\`
+
+## User Roles
+
+### Super Admin
+- Platform owner access
+- Manage all tenants
+- View platform metrics
+- Access audit logs
+
+### Tenant Roles
+- **Owner**: Full tenant access
+- **Admin**: Manage users, settings
+- **Manager**: Manage leads, campaigns
+- **Agent**: Handle chats, leads
+- **Viewer**: Read-only access
+
+## License
+
+Proprietary - All rights reserved

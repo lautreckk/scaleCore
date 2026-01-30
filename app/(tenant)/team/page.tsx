@@ -1,0 +1,208 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { formatDateTime, USER_ROLES, getInitials } from "@/lib/utils";
+import {
+  Plus,
+  Search,
+  UsersRound,
+  MoreVertical,
+  Mail,
+  Shield,
+} from "lucide-react";
+
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url: string | null;
+  role: string;
+  status: string;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export default function TeamPage() {
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const supabase = createClient();
+
+  useEffect(() => {
+    const loadTeam = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: tenantUser } = await supabase
+        .from("tenant_users")
+        .select("tenant_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!tenantUser) return;
+
+      let query = supabase
+        .from("tenant_users")
+        .select("*")
+        .eq("tenant_id", tenantUser.tenant_id)
+        .order("created_at", { ascending: true });
+
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
+      }
+
+      const { data } = await query;
+      setMembers(data || []);
+      setLoading(false);
+    };
+
+    loadTeam();
+  }, [supabase, search]);
+
+  const getRoleBadge = (role: string) => {
+    const colors: Record<string, string> = {
+      owner: "bg-primary/10 text-primary",
+      admin: "bg-purple-500/10 text-purple-500",
+      manager: "bg-blue-500/10 text-blue-500",
+      agent: "bg-green-500/10 text-green-500",
+      viewer: "bg-gray-500/10 text-gray-500",
+    };
+
+    const roleLabel = USER_ROLES.find((r) => r.value === role)?.label || role;
+
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+          colors[role] || colors.viewer
+        }`}
+      >
+        <Shield className="h-3 w-3" />
+        {roleLabel}
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Equipe</h1>
+          <p className="text-muted-foreground">Gerencie os membros da sua equipe</p>
+        </div>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Convidar Membro
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar membros..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Team Members */}
+      {loading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-4">
+                <div className="h-24 bg-surface-elevated rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : members.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <UsersRound className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">Nenhum membro</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Convide membros para sua equipe.
+            </p>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Convidar Membro
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {members.map((member) => (
+            <Card key={member.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center text-white font-medium">
+                      {getInitials(member.name)}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-white">{member.name}</h3>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {member.email}
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  {getRoleBadge(member.role || "agent")}
+                  <span
+                    className={`text-xs ${
+                      member.status === "active"
+                        ? "text-green-500"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {member.status === "active" ? "Ativo" : "Inativo"}
+                  </span>
+                </div>
+                {member.last_login_at && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Último acesso: {formatDateTime(member.last_login_at)}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Roles Legend */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Níveis de Acesso</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+            {USER_ROLES.map((role) => (
+              <div key={role.value} className="text-sm">
+                <span className="font-medium text-white">{role.label}</span>
+                <p className="text-xs text-muted-foreground">
+                  {role.value === "owner" && "Acesso total"}
+                  {role.value === "admin" && "Gerencia tudo exceto billing"}
+                  {role.value === "manager" && "Gerencia leads e campanhas"}
+                  {role.value === "agent" && "Atende leads e chats"}
+                  {role.value === "viewer" && "Apenas visualização"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
