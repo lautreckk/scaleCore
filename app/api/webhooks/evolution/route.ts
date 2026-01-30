@@ -358,6 +358,19 @@ export async function POST(request: NextRequest) {
         let messageType = "text";
         let mediaUrl: string | null = null;
 
+        // Helper to get preview text for last_message
+        const getLastMessagePreview = (type: string, text: string): string => {
+          if (text) return text;
+          switch (type) {
+            case "image": return "📷 Imagem";
+            case "video": return "🎬 Vídeo";
+            case "audio": return "🎵 Áudio";
+            case "document": return "📄 Documento";
+            case "sticker": return "🎭 Sticker";
+            default: return "";
+          }
+        };
+
         if (messageData.message?.conversation) {
           content = messageData.message.conversation;
         } else if (messageData.message?.extendedTextMessage?.text) {
@@ -471,7 +484,7 @@ export async function POST(request: NextRequest) {
               remote_jid: remoteJid,
               contact_name: messageData.pushName || null,
               lead_id: lead?.id || null,
-              last_message: content,
+              last_message: getLastMessagePreview(messageType, content),
               last_message_at: new Date().toISOString(),
               unread_count: fromMe ? 0 : 1,
             })
@@ -499,7 +512,7 @@ export async function POST(request: NextRequest) {
             .from("chats")
             .update({
               contact_name: messageData.pushName || undefined,
-              last_message: content,
+              last_message: getLastMessagePreview(messageType, content),
               last_message_at: new Date().toISOString(),
               unread_count: fromMe ? 0 : supabase.rpc("increment", { x: 1 }),
             })
