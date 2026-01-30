@@ -738,21 +738,38 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Insert message
+        // Insert message (check if already exists to avoid duplicates)
         if (!chat) break;
-        await supabase.from("messages").insert({
-          chat_id: chat.id,
-          message_id: messageId,
-          from_me: fromMe,
-          remote_jid: remoteJid,
-          message_type: messageType,
-          content,
-          media_url: mediaUrl,
-          status: fromMe ? "sent" : "received",
-          timestamp: messageData.messageTimestamp
-            ? new Date(Number(messageData.messageTimestamp) * 1000).toISOString()
-            : new Date().toISOString(),
-        });
+
+        const { data: existingMessage } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("message_id", messageId)
+          .single();
+
+        if (!existingMessage) {
+          await supabase.from("messages").insert({
+            chat_id: chat.id,
+            message_id: messageId,
+            from_me: fromMe,
+            remote_jid: remoteJid,
+            message_type: messageType,
+            content,
+            media_url: mediaUrl,
+            status: fromMe ? "sent" : "received",
+            timestamp: messageData.messageTimestamp
+              ? new Date(Number(messageData.messageTimestamp) * 1000).toISOString()
+              : new Date().toISOString(),
+          });
+        } else {
+          // Update existing message if needed (e.g., media_url wasn't set)
+          if (mediaUrl) {
+            await supabase
+              .from("messages")
+              .update({ media_url: mediaUrl, status: fromMe ? "sent" : "received" })
+              .eq("id", existingMessage.id);
+          }
+        }
 
         // Update instance message count
         if (fromMe) {

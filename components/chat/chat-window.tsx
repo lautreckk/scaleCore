@@ -217,17 +217,19 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
 
     if (!error && data) {
       setMessages(prev => {
-        // Keep optimistic messages that haven't been confirmed yet
-        const optimisticMessages = prev.filter(m => m.isOptimistic);
-        const confirmedIds = new Set(data.map(m => m.message_id));
+        // Get current messages that are not from DB (optimistic or updated)
+        const localMessages = prev.filter(m => m.isOptimistic || m.id.startsWith("temp-"));
+        const dbMessageIds = new Set(data.map(m => m.message_id));
 
-        // Filter out optimistic messages that have been confirmed
-        const stillPendingOptimistic = optimisticMessages.filter(
-          m => !confirmedIds.has(m.message_id)
+        // Keep only local messages that don't have a DB counterpart
+        const stillPendingLocal = localMessages.filter(
+          m => !dbMessageIds.has(m.message_id)
         );
 
-        // Merge: real messages + still pending optimistic ones
-        return [...data, ...stillPendingOptimistic];
+        // Merge: DB messages + still pending local ones (sorted by timestamp)
+        const merged = [...data, ...stillPendingLocal];
+        merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        return merged;
       });
     }
     setLoading(false);
@@ -314,14 +316,19 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         message,
       }),
     }).then(async (response) => {
+      const data = await response.json();
       if (!response.ok) {
-        const data = await response.json();
         // Remove optimistic message and show error
         setMessages(prev => prev.filter(m => m.id !== tempId));
         toast.error(data.error || "Erro ao enviar mensagem");
+      } else {
+        // Update optimistic message with real message_id and status
+        setMessages(prev => prev.map(m =>
+          m.id === tempId
+            ? { ...m, message_id: data.messageId, status: "sent", isOptimistic: false }
+            : m
+        ));
       }
-      // If successful, the webhook will update the message via realtime
-      // and loadMessages will replace the optimistic message
     }).catch((error) => {
       // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== tempId));
@@ -391,11 +398,17 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
           }),
         });
 
+        const data = await response.json();
         if (!response.ok) {
-          const data = await response.json();
           throw new Error(data.error || "Failed to send media");
         }
-        // If successful, the webhook will update the message via realtime
+
+        // Update optimistic message with real message_id and status
+        setMessages(prev => prev.map(m =>
+          m.id === tempId
+            ? { ...m, message_id: data.messageId, status: "sent", isOptimistic: false, media_url: url }
+            : m
+        ));
       } catch (error) {
         // Remove optimistic message on error
         setMessages(prev => prev.filter(m => m.id !== tempId));
