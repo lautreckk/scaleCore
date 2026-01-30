@@ -573,6 +573,10 @@ export async function POST(request: NextRequest) {
           }
         } else {
           console.log("[MESSAGE TYPE] UNKNOWN - no matching message type found");
+          console.log("[MESSAGE TYPE] Full message object:", JSON.stringify(messageData.message, null, 2));
+          // Skip unknown message types (protocol messages, reactions, etc.)
+          // Don't create/update chat for these
+          break;
         }
 
         // Skip status messages
@@ -640,11 +644,17 @@ export async function POST(request: NextRequest) {
           const previewText = getLastMessagePreview(messageType, content);
           console.log(`[Chat Update] chatId=${chat.id}, messageType=${messageType}, content="${content}", preview="${previewText}", fromMe=${fromMe}`);
 
-          // Build update object
+          // Build update object - only include last_message if we have a preview
           const updateData: Record<string, unknown> = {
-            last_message: previewText,
             last_message_at: new Date().toISOString(),
           };
+
+          // Only update last_message if we have a valid preview (not empty)
+          if (previewText) {
+            updateData.last_message = previewText;
+          } else {
+            console.log(`[Chat Update] Skipping last_message update - preview is empty`);
+          }
 
           // Only update contact_name if we have one
           if (messageData.pushName) {
