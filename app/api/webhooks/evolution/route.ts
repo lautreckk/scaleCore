@@ -598,7 +598,7 @@ export async function POST(request: NextRequest) {
         } else {
           // Update existing chat
           const previewText = getLastMessagePreview(messageType, content);
-          console.log(`[Chat Update] chatId=${chat.id}, preview="${previewText}", fromMe=${fromMe}`);
+          console.log(`[Chat Update] chatId=${chat.id}, messageType=${messageType}, content="${content}", preview="${previewText}", fromMe=${fromMe}`);
 
           // Build update object
           const updateData: Record<string, unknown> = {
@@ -626,6 +626,7 @@ export async function POST(request: NextRequest) {
             }
           } else {
             // Use raw SQL to increment unread_count
+            console.log(`[RPC Call] p_chat_id=${chat.id}, p_last_message="${previewText}"`);
             const { error: updateError } = await supabase.rpc("increment_unread_and_update_chat", {
               p_chat_id: chat.id,
               p_last_message: previewText,
