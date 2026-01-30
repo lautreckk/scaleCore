@@ -3,17 +3,15 @@
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from "lucide-react";
+import { ArrowLeft, PanelRightClose, PanelRight } from "lucide-react";
 
 interface ChatLayoutProps {
   sidebar: ReactNode;
   main: ReactNode;
   panel?: ReactNode;
   showPanel?: boolean;
-  showSidebar?: boolean;
   selectedChatId?: string | null;
   onBackToList?: () => void;
-  onToggleSidebar?: () => void;
   onTogglePanel?: () => void;
 }
 
@@ -21,25 +19,22 @@ export function ChatLayout({
   sidebar,
   main,
   panel,
-  showPanel = true,
-  showSidebar = true,
+  showPanel = false,
   selectedChatId,
   onBackToList,
-  onToggleSidebar,
   onTogglePanel,
 }: ChatLayoutProps) {
   return (
     <div className="flex h-[calc(100vh-120px)] bg-card rounded-lg border border-border overflow-hidden relative">
-      {/* Left Sidebar - Chat List */}
+      {/* Left Sidebar - Chat List (always visible) */}
       <div
         className={cn(
-          "flex-shrink-0 border-r border-border flex flex-col bg-background overflow-hidden transition-all duration-300",
+          "flex-shrink-0 border-r border-border flex flex-col bg-background overflow-hidden w-full md:w-[300px] lg:w-[320px]",
           // Full width on mobile when no chat selected, fixed width on desktop
-          selectedChatId ? "hidden md:flex" : "flex",
-          showSidebar ? "w-full md:w-[300px] lg:w-[320px]" : "w-0 md:w-0 border-r-0"
+          selectedChatId ? "hidden md:flex" : "flex"
         )}
       >
-        {showSidebar && sidebar}
+        {sidebar}
       </div>
 
       {/* Center - Chat Window */}
@@ -50,10 +45,9 @@ export function ChatLayout({
           !selectedChatId ? "hidden md:flex" : "flex"
         )}
       >
-        {/* Toolbar */}
-        <div className="absolute top-3 left-2 z-20 flex items-center gap-1">
-          {/* Mobile back button */}
-          {selectedChatId && onBackToList && (
+        {/* Mobile back button */}
+        {selectedChatId && onBackToList && (
+          <div className="absolute top-3 left-2 z-20">
             <Button
               variant="ghost"
               size="icon"
@@ -62,25 +56,8 @@ export function ChatLayout({
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-          )}
-
-          {/* Toggle sidebar button - desktop only */}
-          {onToggleSidebar && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleSidebar}
-              className="hidden md:flex h-8 w-8 bg-background/80 backdrop-blur-sm"
-              title={showSidebar ? "Esconder conversas" : "Mostrar conversas"}
-            >
-              {showSidebar ? (
-                <PanelLeftClose className="h-4 w-4" />
-              ) : (
-                <PanelLeft className="h-4 w-4" />
-              )}
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Toggle panel button - top right */}
         {onTogglePanel && panel && (

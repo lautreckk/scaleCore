@@ -16,8 +16,7 @@ interface Instance {
 export default function ChatsPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [instances, setInstances] = useState<Instance[]>([]);
-  const [showPanel, setShowPanel] = useState(true);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showPanel, setShowPanel] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -67,10 +66,8 @@ export default function ChatsPage() {
         <ContactPanel chatId={selectedChatId} />
       }
       showPanel={showPanel}
-      showSidebar={showSidebar}
       selectedChatId={selectedChatId}
       onBackToList={() => setSelectedChatId(null)}
-      onToggleSidebar={() => setShowSidebar(!showSidebar)}
       onTogglePanel={() => setShowPanel(!showPanel)}
     />
   );
