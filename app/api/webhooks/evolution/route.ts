@@ -393,18 +393,10 @@ export async function POST(request: NextRequest) {
         const messageId = key.id;
 
         // Log message data for debugging
-        console.log("Message data keys:", Object.keys(messageData));
+        console.log("[WEBHOOK DEBUG] messageData keys:", Object.keys(messageData));
+        console.log("[WEBHOOK DEBUG] Full messageData.message:", JSON.stringify(messageData.message, null, 2));
         if (messageData.message) {
-          console.log("Message object keys:", Object.keys(messageData.message));
-          // Check if base64 is present in any media message
-          if (messageData.message.imageMessage) {
-            console.log("imageMessage keys:", Object.keys(messageData.message.imageMessage));
-            console.log("Has base64:", !!messageData.message.imageMessage.base64);
-          }
-          if (messageData.message.audioMessage) {
-            console.log("audioMessage keys:", Object.keys(messageData.message.audioMessage));
-            console.log("Has base64:", !!messageData.message.audioMessage.base64);
-          }
+          console.log("[WEBHOOK DEBUG] Message object keys:", Object.keys(messageData.message));
         }
 
         // Extract message content
@@ -430,10 +422,13 @@ export async function POST(request: NextRequest) {
         };
 
         if (messageData.message?.conversation) {
+          console.log("[MESSAGE TYPE] conversation");
           content = messageData.message.conversation;
         } else if (messageData.message?.extendedTextMessage?.text) {
+          console.log("[MESSAGE TYPE] extendedTextMessage");
           content = messageData.message.extendedTextMessage.text;
         } else if (messageData.message?.imageMessage) {
+          console.log("[MESSAGE TYPE] imageMessage");
           messageType = "image";
           content = messageData.message.imageMessage.caption || "";
           const imgMimetype = messageData.message.imageMessage.mimetype || "image/jpeg";
@@ -516,6 +511,7 @@ export async function POST(request: NextRequest) {
             );
           }
         } else if (messageData.message?.stickerMessage) {
+          console.log("[MESSAGE TYPE] stickerMessage");
           messageType = "sticker";
           const stickerMimetype = messageData.message.stickerMessage.mimetype || "image/webp";
 
@@ -534,6 +530,8 @@ export async function POST(request: NextRequest) {
               tenantId
             );
           }
+        } else {
+          console.log("[MESSAGE TYPE] UNKNOWN - no matching message type found");
         }
 
         // Skip status messages
