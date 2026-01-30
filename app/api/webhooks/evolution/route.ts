@@ -624,33 +624,40 @@ export async function POST(request: NextRequest) {
               console.log("[Chat Update] Success (fromMe=true)");
             }
           } else {
-            // Use raw SQL to increment unread_count
-            console.log(`[RPC Call] p_chat_id=${chat.id}, p_last_message="${previewText}"`);
-            const { error: updateError } = await supabase.rpc("increment_unread_and_update_chat", {
-              p_chat_id: chat.id,
-              p_last_message: previewText,
-              p_last_message_at: new Date().toISOString(),
-              p_contact_name: messageData.pushName || null,
-            });
+            // Use direct SQL update to increment unread_count (bypasses RLS with service role)
+            console.log(`[Direct Update] chatId=${chat.id}, previewText="${previewText}"`);
+
+            // First get current unread_count
+            const { data: currentChat } = await supabase
+              .from("chats")
+              .select("unread_count")
+              .eq("id", chat.id)
+              .single();
+
+            const newUnreadCount = (currentChat?.unread_count || 0) + 1;
+
+            const updatePayload: Record<string, unknown> = {
+              last_message: previewText,
+              last_message_at: new Date().toISOString(),
+              unread_count: newUnreadCount,
+            };
+
+            if (messageData.pushName) {
+              updatePayload.contact_name = messageData.pushName;
+            }
+
+            console.log(`[Direct Update] payload:`, JSON.stringify(updatePayload));
+
+            const { error: updateError, data: updateResult } = await supabase
+              .from("chats")
+              .update(updatePayload)
+              .eq("id", chat.id)
+              .select();
 
             if (updateError) {
-              console.error("[Chat Update] RPC Error:", updateError);
-              // Fallback to simple update without increment
-              const { error: fallbackError } = await supabase
-                .from("chats")
-                .update({
-                  ...updateData,
-                  unread_count: 1, // Just set to 1 as fallback
-                })
-                .eq("id", chat.id);
-
-              if (fallbackError) {
-                console.error("[Chat Update] Fallback Error:", fallbackError);
-              } else {
-                console.log("[Chat Update] Fallback Success");
-              }
+              console.error("[Chat Update] Error:", updateError);
             } else {
-              console.log("[Chat Update] RPC Success (fromMe=false)");
+              console.log("[Chat Update] Success, result:", JSON.stringify(updateResult));
             }
           }
 
