@@ -790,7 +790,9 @@ export async function POST(request: NextRequest) {
         const updates = Array.isArray(data) ? data : [data];
 
         for (const update of updates) {
-          const messageId = update?.key?.id;
+          // Evolution API v2.3 uses different field names
+          // Try multiple possible locations for message ID
+          const messageId = update?.messageId || update?.keyId || update?.key?.id || update?.id;
           // Status can be in different places depending on Evolution API version
           const status = update?.status || update?.update?.status || update?.ack;
 
