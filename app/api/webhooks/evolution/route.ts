@@ -203,43 +203,37 @@ interface MessageData {
   status?: string;
 }
 
-// Helper function to upload base64 media to Supabase Storage
-async function uploadMediaToStorage(
-  base64Data: string,
+// Mimetype to extension mapping
+const EXTENSION_MAP: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "video/mp4": "mp4",
+  "video/3gpp": "3gp",
+  "audio/ogg": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/opus": "opus",
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+};
+
+// Helper function to upload buffer to Supabase Storage
+async function uploadBufferToStorage(
+  buffer: Buffer,
   mimetype: string,
   messageId: string,
   tenantId: string
 ): Promise<string | null> {
   try {
-    // Remove data URL prefix if present
-    const base64Content = base64Data.replace(/^data:[^;]+;base64,/, "");
-
-    // Convert base64 to buffer
-    const buffer = Buffer.from(base64Content, "base64");
-
-    // Determine file extension from mimetype
-    const extensionMap: Record<string, string> = {
-      "image/jpeg": "jpg",
-      "image/jpg": "jpg",
-      "image/png": "png",
-      "image/gif": "gif",
-      "image/webp": "webp",
-      "video/mp4": "mp4",
-      "video/3gpp": "3gp",
-      "audio/ogg": "ogg",
-      "audio/mpeg": "mp3",
-      "audio/mp4": "m4a",
-      "audio/opus": "opus",
-      "application/pdf": "pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-    };
-
-    const extension = extensionMap[mimetype] || mimetype.split("/")[1] || "bin";
+    const extension = EXTENSION_MAP[mimetype] || mimetype.split("/")[1] || "bin";
     const fileName = `${tenantId}/${Date.now()}-${messageId}.${extension}`;
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from("chat-media")
       .upload(fileName, buffer, {
         contentType: mimetype,
@@ -258,6 +252,66 @@ async function uploadMediaToStorage(
       .getPublicUrl(fileName);
 
     return urlData.publicUrl;
+  } catch (error) {
+    console.error("Error uploading buffer to storage:", error);
+    return null;
+  }
+}
+
+// Helper function to download media from URL and upload to Supabase Storage
+async function downloadAndUploadMedia(
+  url: string,
+  mimetype: string,
+  messageId: string,
+  tenantId: string
+): Promise<string | null> {
+  try {
+    console.log(`[Media] Downloading from URL: ${url.substring(0, 100)}...`);
+
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "WhatsApp/2.0",
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[Media] Failed to download: ${response.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    console.log(`[Media] Downloaded ${buffer.length} bytes, uploading to storage...`);
+
+    const uploadedUrl = await uploadBufferToStorage(buffer, mimetype, messageId, tenantId);
+
+    if (uploadedUrl) {
+      console.log(`[Media] Uploaded successfully: ${uploadedUrl}`);
+    }
+
+    return uploadedUrl;
+  } catch (error) {
+    console.error("[Media] Error downloading/uploading:", error);
+    return null;
+  }
+}
+
+// Helper function to upload base64 media to Supabase Storage
+async function uploadMediaToStorage(
+  base64Data: string,
+  mimetype: string,
+  messageId: string,
+  tenantId: string
+): Promise<string | null> {
+  try {
+    // Remove data URL prefix if present
+    const base64Content = base64Data.replace(/^data:[^;]+;base64,/, "");
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(base64Content, "base64");
+
+    return await uploadBufferToStorage(buffer, mimetype, messageId, tenantId);
   } catch (error) {
     console.error("Error processing media upload:", error);
     return null;
@@ -378,76 +432,101 @@ export async function POST(request: NextRequest) {
         } else if (messageData.message?.imageMessage) {
           messageType = "image";
           content = messageData.message.imageMessage.caption || "";
+          const imgMimetype = messageData.message.imageMessage.mimetype || "image/jpeg";
 
-          // Try to upload base64 media to storage, fallback to original URL
+          // Try base64 first, then download from URL
           if (messageData.message.imageMessage.base64) {
-            const uploadedUrl = await uploadMediaToStorage(
+            mediaUrl = await uploadMediaToStorage(
               messageData.message.imageMessage.base64,
-              messageData.message.imageMessage.mimetype || "image/jpeg",
+              imgMimetype,
               messageId,
               tenantId
             );
-            mediaUrl = uploadedUrl || messageData.message.imageMessage.url || null;
-          } else {
-            mediaUrl = messageData.message.imageMessage.url || null;
+          } else if (messageData.message.imageMessage.url) {
+            mediaUrl = await downloadAndUploadMedia(
+              messageData.message.imageMessage.url,
+              imgMimetype,
+              messageId,
+              tenantId
+            );
           }
         } else if (messageData.message?.videoMessage) {
           messageType = "video";
           content = messageData.message.videoMessage.caption || "";
+          const vidMimetype = messageData.message.videoMessage.mimetype || "video/mp4";
 
           if (messageData.message.videoMessage.base64) {
-            const uploadedUrl = await uploadMediaToStorage(
+            mediaUrl = await uploadMediaToStorage(
               messageData.message.videoMessage.base64,
-              messageData.message.videoMessage.mimetype || "video/mp4",
+              vidMimetype,
               messageId,
               tenantId
             );
-            mediaUrl = uploadedUrl || messageData.message.videoMessage.url || null;
-          } else {
-            mediaUrl = messageData.message.videoMessage.url || null;
+          } else if (messageData.message.videoMessage.url) {
+            mediaUrl = await downloadAndUploadMedia(
+              messageData.message.videoMessage.url,
+              vidMimetype,
+              messageId,
+              tenantId
+            );
           }
         } else if (messageData.message?.audioMessage) {
           messageType = "audio";
+          const audMimetype = messageData.message.audioMessage.mimetype || "audio/ogg";
 
           if (messageData.message.audioMessage.base64) {
-            const uploadedUrl = await uploadMediaToStorage(
+            mediaUrl = await uploadMediaToStorage(
               messageData.message.audioMessage.base64,
-              messageData.message.audioMessage.mimetype || "audio/ogg",
+              audMimetype,
               messageId,
               tenantId
             );
-            mediaUrl = uploadedUrl || messageData.message.audioMessage.url || null;
-          } else {
-            mediaUrl = messageData.message.audioMessage.url || null;
+          } else if (messageData.message.audioMessage.url) {
+            mediaUrl = await downloadAndUploadMedia(
+              messageData.message.audioMessage.url,
+              audMimetype,
+              messageId,
+              tenantId
+            );
           }
         } else if (messageData.message?.documentMessage) {
           messageType = "document";
           content = messageData.message.documentMessage.fileName || "";
+          const docMimetype = messageData.message.documentMessage.mimetype || "application/octet-stream";
 
           if (messageData.message.documentMessage.base64) {
-            const uploadedUrl = await uploadMediaToStorage(
+            mediaUrl = await uploadMediaToStorage(
               messageData.message.documentMessage.base64,
-              messageData.message.documentMessage.mimetype || "application/octet-stream",
+              docMimetype,
               messageId,
               tenantId
             );
-            mediaUrl = uploadedUrl || messageData.message.documentMessage.url || null;
-          } else {
-            mediaUrl = messageData.message.documentMessage.url || null;
+          } else if (messageData.message.documentMessage.url) {
+            mediaUrl = await downloadAndUploadMedia(
+              messageData.message.documentMessage.url,
+              docMimetype,
+              messageId,
+              tenantId
+            );
           }
         } else if (messageData.message?.stickerMessage) {
           messageType = "sticker";
+          const stickerMimetype = messageData.message.stickerMessage.mimetype || "image/webp";
 
           if (messageData.message.stickerMessage.base64) {
-            const uploadedUrl = await uploadMediaToStorage(
+            mediaUrl = await uploadMediaToStorage(
               messageData.message.stickerMessage.base64,
-              messageData.message.stickerMessage.mimetype || "image/webp",
+              stickerMimetype,
               messageId,
               tenantId
             );
-            mediaUrl = uploadedUrl || messageData.message.stickerMessage.url || null;
-          } else {
-            mediaUrl = messageData.message.stickerMessage.url || null;
+          } else if (messageData.message.stickerMessage.url) {
+            mediaUrl = await downloadAndUploadMedia(
+              messageData.message.stickerMessage.url,
+              stickerMimetype,
+              messageId,
+              tenantId
+            );
           }
         }
 
