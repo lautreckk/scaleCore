@@ -1,8 +1,28 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { Check, CheckCheck, Clock, FileText, Download, Image as ImageIcon, Play, Pause, Mic } from "lucide-react";
+import {
+  Check,
+  CheckCheck,
+  Clock,
+  FileText,
+  Download,
+  Image as ImageIcon,
+  Play,
+  Pause,
+  Mic,
+  MoreVertical,
+  Copy,
+  X
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface MessageBubbleProps {
   content: string | null;
@@ -27,7 +47,10 @@ export function MessageBubble({
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+
   const formatMessageTime = (ts: string) => {
     return new Date(ts).toLocaleTimeString("pt-BR", {
       hour: "2-digit",
@@ -73,6 +96,33 @@ export function MessageBubble({
     const percentage = x / rect.width;
     audioRef.current.currentTime = percentage * audioDuration;
     setAudioProgress(audioRef.current.currentTime);
+  };
+
+  const handleCopyText = () => {
+    if (content) {
+      navigator.clipboard.writeText(content);
+      toast.success("Texto copiado!");
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!mediaUrl) return;
+    try {
+      const response = await fetch(mediaUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const extension = mediaUrl.split(".").pop()?.split("?")[0] || "file";
+      a.download = `download.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("Download iniciado!");
+    } catch {
+      toast.error("Erro ao baixar arquivo");
+    }
   };
 
   const getStatusIcon = () => {
@@ -159,10 +209,10 @@ export function MessageBubble({
             src={mediaUrl}
             alt="Image"
             className={cn(
-              "max-w-full rounded-lg mb-2 cursor-pointer hover:opacity-90 transition-opacity",
-              messageType === "sticker" && "max-w-[150px]"
+              "rounded-lg mb-2 cursor-pointer hover:opacity-90 transition-opacity object-cover",
+              messageType === "sticker" ? "max-w-[150px]" : "max-w-[280px] max-h-[280px]"
             )}
-            onClick={() => window.open(mediaUrl, "_blank")}
+            onClick={() => setShowImageModal(true)}
             onError={() => setImageError(true)}
           />
         );
@@ -184,7 +234,7 @@ export function MessageBubble({
           <video
             src={mediaUrl}
             controls
-            className="max-w-full rounded-lg mb-2"
+            className="max-w-[280px] rounded-lg mb-2"
             preload="metadata"
             onError={() => setVideoError(true)}
           />
@@ -278,50 +328,147 @@ export function MessageBubble({
     }
   };
 
+  const hasMedia = mediaUrl && ["image", "video", "audio", "document", "sticker"].includes(messageType);
+  const hasText = content && messageType === "text";
+
   return (
-    <div
-      className={cn("flex w-full", fromMe ? "justify-end" : "justify-start")}
-    >
-      <div
-        className={cn(
-          "max-w-[75%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm break-words",
-          fromMe
-            ? "bg-primary text-primary-foreground rounded-br-none"
-            : "bg-card border border-border rounded-bl-none"
-        )}
-      >
-        {renderMedia()}
-
-        {/* Show content for text messages or as caption for media */}
-        {content && messageType !== "document" && messageType !== "audio" && (
-          <p
-            className={cn(
-              "whitespace-pre-wrap break-words text-sm",
-              fromMe ? "text-white" : "text-white"
-            )}
+    <>
+      {/* Image Modal */}
+      {showImageModal && mediaUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowImageModal(false)}
+        >
+          <button
+            onClick={() => setShowImageModal(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
           >
-            {content}
-          </p>
+            <X className="h-6 w-6 text-white" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownload();
+            }}
+            className="absolute top-4 left-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <Download className="h-6 w-6 text-white" />
+          </button>
+          <img
+            src={mediaUrl}
+            alt="Image"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      <div
+        className={cn("flex w-full group", fromMe ? "justify-end" : "justify-start")}
+        onMouseEnter={() => setShowMenu(true)}
+        onMouseLeave={() => setShowMenu(false)}
+      >
+        {/* Menu for sent messages (left side) */}
+        {fromMe && (
+          <div className={cn(
+            "flex items-start mr-1 transition-opacity",
+            showMenu ? "opacity-100" : "opacity-0"
+          )}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-1 rounded hover:bg-muted/50 text-muted-foreground">
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                {hasText && (
+                  <DropdownMenuItem onClick={handleCopyText}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar texto
+                  </DropdownMenuItem>
+                )}
+                {hasMedia && (
+                  <DropdownMenuItem onClick={handleDownload}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
 
-        {/* Timestamp and status */}
         <div
           className={cn(
-            "flex items-center gap-1 mt-1",
-            fromMe ? "justify-end" : "justify-start"
+            "max-w-[75%] sm:max-w-[70%] rounded-lg px-3 py-2 shadow-sm break-words relative",
+            fromMe
+              ? "bg-primary text-primary-foreground rounded-br-none"
+              : "bg-card border border-border rounded-bl-none"
           )}
         >
-          <span
+          {renderMedia()}
+
+          {/* Show content for text messages or as caption for media */}
+          {content && messageType !== "document" && messageType !== "audio" && (
+            <p
+              className={cn(
+                "whitespace-pre-wrap break-words text-sm",
+                fromMe ? "text-white" : "text-white"
+              )}
+            >
+              {content}
+            </p>
+          )}
+
+          {/* Timestamp and status */}
+          <div
             className={cn(
-              "text-[10px]",
-              fromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+              "flex items-center gap-1 mt-1",
+              fromMe ? "justify-end" : "justify-start"
             )}
           >
-            {formatMessageTime(timestamp)}
-          </span>
-          {fromMe && getStatusIcon()}
+            <span
+              className={cn(
+                "text-[10px]",
+                fromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+              )}
+            >
+              {formatMessageTime(timestamp)}
+            </span>
+            {fromMe && getStatusIcon()}
+          </div>
         </div>
+
+        {/* Menu for received messages (right side) */}
+        {!fromMe && (
+          <div className={cn(
+            "flex items-start ml-1 transition-opacity",
+            showMenu ? "opacity-100" : "opacity-0"
+          )}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-1 rounded hover:bg-muted/50 text-muted-foreground">
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-40">
+                {hasText && (
+                  <DropdownMenuItem onClick={handleCopyText}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar texto
+                  </DropdownMenuItem>
+                )}
+                {hasMedia && (
+                  <DropdownMenuItem onClick={handleDownload}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
