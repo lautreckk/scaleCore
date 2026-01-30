@@ -84,9 +84,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Configure webhook
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin")}/api/webhooks/evolution`;
-    await evolutionClient.setWebhook(instanceName, {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin");
+    const webhookUrl = `${appUrl}/api/webhooks/evolution`;
+
+    console.log(`Setting up webhook for new instance ${instanceName}`);
+    console.log(`App URL: ${appUrl}, Webhook URL: ${webhookUrl}`);
+
+    const webhookResult = await evolutionClient.setWebhook(instanceName, {
       url: webhookUrl,
+      enabled: true,
       webhook_by_events: false,
       webhook_base64: true,
       events: [
@@ -97,6 +103,8 @@ export async function POST(request: NextRequest) {
         "SEND_MESSAGE",
       ],
     });
+
+    console.log(`Webhook setup result:`, webhookResult);
 
     // Save to database
     const { error: dbError } = await supabase.from("whatsapp_instances").insert({

@@ -104,6 +104,7 @@ export interface EvolutionApiClient {
     instanceName: string,
     params: {
       url: string;
+      enabled?: boolean;
       webhook_by_events?: boolean;
       webhook_base64?: boolean;
       events?: string[];
@@ -258,25 +259,31 @@ export function createEvolutionClient(credentials: EvolutionCredentials): Evolut
       instanceName: string,
       params: {
         url: string;
+        enabled?: boolean;
         webhook_by_events?: boolean;
         webhook_base64?: boolean;
         events?: string[];
       }
     ): Promise<EvolutionApiResponse<void>> {
+      const webhookData = {
+        enabled: params.enabled ?? true,
+        url: params.url,
+        webhookByEvents: params.webhook_by_events ?? false,
+        webhookBase64: params.webhook_base64 ?? true,
+        events: params.events ?? [
+          "QRCODE_UPDATED",
+          "CONNECTION_UPDATE",
+          "MESSAGES_UPSERT",
+          "MESSAGES_UPDATE",
+          "SEND_MESSAGE",
+        ],
+      };
+
+      console.log(`Setting webhook for ${instanceName}:`, webhookData);
+
       return evolutionFetch(`/webhook/set/${instanceName}`, {
         method: "POST",
-        body: JSON.stringify({
-          url: params.url,
-          webhook_by_events: params.webhook_by_events ?? false,
-          webhook_base64: params.webhook_base64 ?? true,
-          events: params.events ?? [
-            "QRCODE_UPDATED",
-            "CONNECTION_UPDATE",
-            "MESSAGES_UPSERT",
-            "MESSAGES_UPDATE",
-            "SEND_MESSAGE",
-          ],
-        }),
+        body: JSON.stringify(webhookData),
       });
     },
 

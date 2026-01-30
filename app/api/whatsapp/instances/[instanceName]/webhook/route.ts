@@ -90,10 +90,16 @@ export async function POST(
     }
 
     // Configurar webhook para apontar para nossa API
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin")}/api/webhooks/evolution`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin");
+    const webhookUrl = `${appUrl}/api/webhooks/evolution`;
+
+    console.log(`Configuring webhook for instance ${instanceName}`);
+    console.log(`App URL: ${appUrl}`);
+    console.log(`Webhook URL: ${webhookUrl}`);
 
     const result = await clientData.client.setWebhook(instanceName, {
       url: webhookUrl,
+      enabled: true,
       webhook_by_events: false,
       webhook_base64: true,
       events: [
@@ -105,7 +111,10 @@ export async function POST(
       ],
     });
 
+    console.log(`Webhook configuration result:`, result);
+
     if (!result.success) {
+      console.error(`Failed to configure webhook: ${result.error}`);
       return NextResponse.json(
         { error: result.error || "Failed to configure webhook" },
         { status: 500 }
