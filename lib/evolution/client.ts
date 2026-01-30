@@ -265,21 +265,24 @@ export function createEvolutionClient(credentials: EvolutionCredentials): Evolut
         events?: string[];
       }
     ): Promise<EvolutionApiResponse<void>> {
+      // Evolution API v2.3 format - requires "webhook" wrapper object
       const webhookData = {
-        enabled: params.enabled ?? true,
-        url: params.url,
-        webhookByEvents: params.webhook_by_events ?? false,
-        webhookBase64: params.webhook_base64 ?? true,
-        events: params.events ?? [
-          "QRCODE_UPDATED",
-          "CONNECTION_UPDATE",
-          "MESSAGES_UPSERT",
-          "MESSAGES_UPDATE",
-          "SEND_MESSAGE",
-        ],
+        webhook: {
+          enabled: params.enabled ?? true,
+          url: params.url,
+          byEvents: params.webhook_by_events ?? false,
+          base64: params.webhook_base64 ?? true,
+          events: params.events ?? [
+            "QRCODE_UPDATED",
+            "CONNECTION_UPDATE",
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE",
+            "SEND_MESSAGE",
+          ],
+        },
       };
 
-      console.log(`Setting webhook for ${instanceName}:`, webhookData);
+      console.log(`Setting webhook for ${instanceName}:`, JSON.stringify(webhookData, null, 2));
 
       return evolutionFetch(`/webhook/set/${instanceName}`, {
         method: "POST",
