@@ -414,15 +414,19 @@ export async function POST(request: NextRequest) {
 
         // Helper to get preview text for last_message
         const getLastMessagePreview = (type: string, text: string): string => {
-          if (text) return text;
-          switch (type) {
-            case "image": return "📷 Imagem";
-            case "video": return "🎬 Vídeo";
-            case "audio": return "🎵 Áudio";
-            case "document": return "📄 Documento";
-            case "sticker": return "🎭 Sticker";
-            default: return "";
-          }
+          if (text && text.trim()) return text;
+          const preview = (() => {
+            switch (type) {
+              case "image": return "📷 Imagem";
+              case "video": return "🎬 Vídeo";
+              case "audio": return "🎵 Áudio";
+              case "document": return "📄 Documento";
+              case "sticker": return "🎭 Sticker";
+              default: return "";
+            }
+          })();
+          console.log(`[Preview] type=${type}, text="${text}", preview="${preview}"`);
+          return preview;
         };
 
         if (messageData.message?.conversation) {
@@ -472,7 +476,9 @@ export async function POST(request: NextRequest) {
           }
         } else if (messageData.message?.audioMessage) {
           messageType = "audio";
-          const audMimetype = messageData.message.audioMessage.mimetype || "audio/ogg";
+          // Clean mimetype - remove codec info like "; codecs=opus"
+          let audMimetype = messageData.message.audioMessage.mimetype || "audio/ogg";
+          audMimetype = audMimetype.split(";")[0].trim();
 
           if (messageData.message.audioMessage.base64) {
             mediaUrl = await uploadMediaToStorage(
