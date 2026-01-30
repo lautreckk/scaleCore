@@ -29,6 +29,7 @@ interface Message {
   media_url: string | null;
   status: string;
   timestamp: string;
+  isOptimistic?: boolean; // For optimistic updates
 }
 
 interface Chat {
@@ -61,56 +62,15 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    if (!chatId) {
-      setChat(null);
-      setMessages([]);
-      return;
-    }
-
-    setLoading(true);
-    loadChat();
-    loadMessages();
-
-    // Set up real-time subscription for messages
-    const channel = supabase
-      .channel(`messages-${chatId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `chat_id=eq.${chatId}`,
-        },
-        (payload) => {
-          console.log("Message realtime event:", payload);
-          loadMessages();
-        }
-      )
-      .subscribe((status) => {
-        console.log("Message subscription status:", status);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [chatId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
 
-  const loadChat = async () => {
+  const loadChat = useCallback(async () => {
     if (!chatId) return;
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -155,9 +115,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         .update({ unread_count: 0 })
         .eq("id", chatId);
     }
-  };
+  }, [chatId, supabase]);
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     if (!chatId) return;
 
     const { data, error } = await supabase
@@ -168,10 +128,64 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       .limit(200);
 
     if (!error && data) {
-      setMessages(data);
+      setMessages(prev => {
+        // Keep optimistic messages that haven't been confirmed yet
+        const optimisticMessages = prev.filter(m => m.isOptimistic);
+        const confirmedIds = new Set(data.map(m => m.message_id));
+
+        // Filter out optimistic messages that have been confirmed
+        const stillPendingOptimistic = optimisticMessages.filter(
+          m => !confirmedIds.has(m.message_id)
+        );
+
+        // Merge: real messages + still pending optimistic ones
+        return [...data, ...stillPendingOptimistic];
+      });
     }
     setLoading(false);
-  };
+  }, [chatId, supabase]);
+
+  // Load chat and messages when chatId changes
+  useEffect(() => {
+    if (!chatId) {
+      setChat(null);
+      setMessages([]);
+      return;
+    }
+
+    setLoading(true);
+    loadChat();
+    loadMessages();
+
+    // Set up real-time subscription for messages
+    const channel = supabase
+      .channel(`messages-${chatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          console.log("Message realtime event:", payload);
+          loadMessages();
+        }
+      )
+      .subscribe((status) => {
+        console.log("Message subscription status:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId, loadChat, loadMessages, supabase]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const sendTextMessage = async (message: string) => {
     if (!chat || !chat.whatsapp_instances) {
@@ -185,7 +199,25 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       throw new Error("WhatsApp not connected");
     }
 
-    const response = await fetch("/api/whatsapp/send", {
+    // Create optimistic message immediately
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      message_id: tempId,
+      from_me: true,
+      content: message,
+      message_type: "text",
+      media_url: null,
+      status: "sending",
+      timestamp: new Date().toISOString(),
+      isOptimistic: true,
+    };
+
+    // Add to messages immediately (optimistic update)
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    // Send to API in background (don't await - let it complete async)
+    fetch("/api/whatsapp/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -193,12 +225,21 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         to: chat.remote_jid,
         message,
       }),
+    }).then(async (response) => {
+      if (!response.ok) {
+        const data = await response.json();
+        // Remove optimistic message and show error
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        toast.error(data.error || "Erro ao enviar mensagem");
+      }
+      // If successful, the webhook will update the message via realtime
+      // and loadMessages will replace the optimistic message
+    }).catch((error) => {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      toast.error("Erro ao enviar mensagem");
+      console.error("Send error:", error);
     });
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || "Failed to send message");
-    }
   };
 
   const sendMediaMessage = async (file: File, type: "image" | "video" | "audio" | "document") => {
@@ -213,38 +254,70 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       throw new Error("WhatsApp not connected");
     }
 
-    // First upload the file
-    const formData = new FormData();
-    formData.append("file", file);
+    // Create optimistic message immediately
+    const tempId = `temp-${Date.now()}`;
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+    const optimisticMessage: Message = {
+      id: tempId,
+      message_id: tempId,
+      from_me: true,
+      content: file.name,
+      message_type: type,
+      media_url: previewUrl,
+      status: "sending",
+      timestamp: new Date().toISOString(),
+      isOptimistic: true,
+    };
 
-    const uploadResponse = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+    // Add to messages immediately (optimistic update)
+    setMessages(prev => [...prev, optimisticMessage]);
 
-    if (!uploadResponse.ok) {
-      throw new Error("Failed to upload file");
-    }
+    // Upload and send in background
+    (async () => {
+      try {
+        // First upload the file
+        const formData = new FormData();
+        formData.append("file", file);
 
-    const { url } = await uploadResponse.json();
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-    // Then send the media message
-    const response = await fetch("/api/whatsapp/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instanceName: instance.instance_name,
-        to: chat.remote_jid,
-        mediaUrl: url,
-        mediaType: type,
-        fileName: file.name,
-      }),
-    });
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload file");
+        }
 
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || "Failed to send media");
-    }
+        const { url } = await uploadResponse.json();
+
+        // Then send the media message
+        const response = await fetch("/api/whatsapp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instanceName: instance.instance_name,
+            to: chat.remote_jid,
+            mediaUrl: url,
+            mediaType: type,
+            fileName: file.name,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to send media");
+        }
+        // If successful, the webhook will update the message via realtime
+      } catch (error) {
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        toast.error("Erro ao enviar arquivo");
+        console.error("Send media error:", error);
+      } finally {
+        // Revoke preview URL
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      }
+    })();
   };
 
   const toggleArchive = async () => {
