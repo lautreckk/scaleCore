@@ -135,10 +135,15 @@ interface QRCodeData {
 
 export async function POST(request: NextRequest) {
   try {
-    const payload: EvolutionWebhookPayload = await request.json();
+    const rawBody = await request.text();
+    console.log("=== EVOLUTION WEBHOOK RECEIVED ===");
+    console.log("Raw body:", rawBody.substring(0, 500));
+
+    const payload: EvolutionWebhookPayload = JSON.parse(rawBody);
     const { event, instance: instanceName, data } = payload;
 
     console.log(`Evolution webhook: ${event} for ${instanceName}`);
+    console.log("Payload keys:", Object.keys(payload));
 
     // Get instance from database
     const { data: instance, error: instanceError } = await supabase
