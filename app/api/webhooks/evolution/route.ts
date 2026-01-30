@@ -784,26 +784,55 @@ export async function POST(request: NextRequest) {
       }
 
       case "MESSAGES_UPDATE": {
-        const messageData = data as MessageData;
-        const messageId = messageData.key?.id;
-        const status = messageData.status;
+        console.log("[MESSAGES_UPDATE] Raw data:", JSON.stringify(data, null, 2));
 
-        if (messageId && status) {
-          const statusMap: Record<string, string> = {
-            "2": "sent",
-            "3": "delivered",
-            "4": "read",
-            DELIVERY_ACK: "delivered",
-            READ: "read",
-            PLAYED: "read",
-          };
+        // Handle both array and single object formats
+        const updates = Array.isArray(data) ? data : [data];
 
-          const newStatus = statusMap[status] || status.toLowerCase();
+        for (const update of updates) {
+          const messageId = update?.key?.id;
+          // Status can be in different places depending on Evolution API version
+          const status = update?.status || update?.update?.status || update?.ack;
 
-          await supabase
-            .from("messages")
-            .update({ status: newStatus })
-            .eq("message_id", messageId);
+          console.log(`[MESSAGES_UPDATE] messageId=${messageId}, status=${status}`);
+
+          if (messageId && status !== undefined) {
+            const statusMap: Record<string, string> = {
+              // Numeric statuses
+              "0": "error",
+              "1": "pending",
+              "2": "sent",
+              "3": "delivered",
+              "4": "read",
+              "5": "played",
+              // String statuses
+              "PENDING": "pending",
+              "SENT": "sent",
+              "DELIVERED": "delivered",
+              "READ": "read",
+              "PLAYED": "played",
+              "ERROR": "error",
+              // ACK values (Baileys)
+              "SERVER_ACK": "sent",
+              "DELIVERY_ACK": "delivered",
+              "READ_ACK": "read",
+              "PLAYED_ACK": "played",
+            };
+
+            const statusKey = String(status).toUpperCase();
+            const newStatus = statusMap[String(status)] || statusMap[statusKey] || "sent";
+
+            console.log(`[MESSAGES_UPDATE] Updating message ${messageId} to status: ${newStatus}`);
+
+            const { error } = await supabase
+              .from("messages")
+              .update({ status: newStatus })
+              .eq("message_id", messageId);
+
+            if (error) {
+              console.error(`[MESSAGES_UPDATE] Error updating:`, error);
+            }
+          }
         }
         break;
       }
