@@ -14,32 +14,41 @@ import {
   Mic,
   MoreVertical,
   Copy,
-  X
+  X,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 interface MessageBubbleProps {
+  messageId?: string;
   content: string | null;
   messageType: string;
   mediaUrl: string | null;
   fromMe: boolean;
   status: string;
   timestamp: string;
+  onDelete?: (messageId: string) => void;
+  onEdit?: (messageId: string, newText: string) => void;
 }
 
 export function MessageBubble({
+  messageId,
   content,
   messageType,
   mediaUrl,
   fromMe,
   status,
   timestamp,
+  onDelete,
+  onEdit,
 }: MessageBubbleProps) {
   const [imageError, setImageError] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -49,7 +58,35 @@ export function MessageBubble({
   const [audioProgress, setAudioProgress] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(content || "");
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const handleDelete = () => {
+    if (messageId && onDelete) {
+      const confirmed = window.confirm("Apagar mensagem para todos?");
+      if (confirmed) {
+        onDelete(messageId);
+      }
+    }
+  };
+
+  const handleStartEdit = () => {
+    setEditText(content || "");
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (messageId && onEdit && editText.trim() && editText !== content) {
+      onEdit(messageId, editText.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditText(content || "");
+    setIsEditing(false);
+  };
 
   const formatMessageTime = (ts: string) => {
     return new Date(ts).toLocaleTimeString("pt-BR", {
@@ -393,6 +430,21 @@ export function MessageBubble({
                     Baixar
                   </DropdownMenuItem>
                 )}
+                {onEdit && hasText && (
+                  <DropdownMenuItem onClick={handleStartEdit}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Apagar
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -410,14 +462,40 @@ export function MessageBubble({
 
           {/* Show content for text messages or as caption for media */}
           {content && messageType !== "document" && messageType !== "audio" && (
-            <p
-              className={cn(
-                "whitespace-pre-wrap break-words text-sm",
-                fromMe ? "text-white" : "text-white"
-              )}
-            >
-              {content}
-            </p>
+            isEditing ? (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full p-2 rounded bg-background text-foreground text-sm resize-none min-h-[60px]"
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-2 py-1 text-xs rounded bg-muted hover:bg-muted/80 text-muted-foreground"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-2 py-1 text-xs rounded bg-primary hover:bg-primary/80 text-primary-foreground"
+                    disabled={!editText.trim() || editText === content}
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p
+                className={cn(
+                  "whitespace-pre-wrap break-words text-sm",
+                  fromMe ? "text-white" : "text-white"
+                )}
+              >
+                {content}
+              </p>
+            )
           )}
 
           {/* Timestamp and status */}

@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const messageId = result.data?.key?.id;
+    const remoteJid = result.data?.key?.remoteJid || `${phoneNumber}@s.whatsapp.net`;
+
     // Deduct from wallet
     await supabase.rpc("deduct_wallet_balance", {
       p_tenant_id: tenantUser.tenant_id,
@@ -111,11 +114,76 @@ export async function POST(request: NextRequest) {
       p_description: "Envio de mensagem WhatsApp",
     });
 
-    // The message will be saved via webhook when Evolution API sends the confirmation
+    // Save message directly (don't rely only on webhook)
+    // This ensures the message is persisted even if webhook fails
+    try {
+      // Find or create chat
+      let { data: chat } = await supabase
+        .from("chats")
+        .select("id")
+        .eq("tenant_id", tenantUser.tenant_id)
+        .eq("instance_id", instance.id)
+        .eq("remote_jid", remoteJid)
+        .single();
+
+      if (!chat) {
+        // Create new chat
+        const { data: newChat } = await supabase
+          .from("chats")
+          .insert({
+            tenant_id: tenantUser.tenant_id,
+            instance_id: instance.id,
+            remote_jid: remoteJid,
+            last_message: mediaUrl ? getMediaPreview(mediaType) : message?.substring(0, 100),
+            last_message_at: new Date().toISOString(),
+            unread_count: 0,
+          })
+          .select("id")
+          .single();
+        chat = newChat;
+      } else {
+        // Update chat
+        await supabase
+          .from("chats")
+          .update({
+            last_message: mediaUrl ? getMediaPreview(mediaType) : message?.substring(0, 100),
+            last_message_at: new Date().toISOString(),
+            unread_count: 0,
+          })
+          .eq("id", chat.id);
+      }
+
+      if (chat && messageId) {
+        // Check if message already exists (webhook might have created it)
+        const { data: existingMessage } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("message_id", messageId)
+          .single();
+
+        if (!existingMessage) {
+          // Insert message
+          await supabase.from("messages").insert({
+            chat_id: chat.id,
+            message_id: messageId,
+            from_me: true,
+            remote_jid: remoteJid,
+            message_type: mediaUrl ? mediaType : "text",
+            content: mediaUrl ? (message || fileName || "") : message,
+            media_url: mediaUrl || null,
+            status: "sent",
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (saveError) {
+      // Log but don't fail - webhook might still save it
+      console.error("Error saving message directly:", saveError);
+    }
 
     return NextResponse.json({
       success: true,
-      messageId: result.data?.key?.id,
+      messageId,
     });
   } catch (error) {
     console.error("Error sending WhatsApp message:", error);
@@ -123,6 +191,16 @@ export async function POST(request: NextRequest) {
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+function getMediaPreview(mediaType: string): string {
+  switch (mediaType) {
+    case "image": return "[Imagem]";
+    case "video": return "[Video]";
+    case "audio": return "[Audio]";
+    case "document": return "[Documento]";
+    default: return "[Arquivo]";
   }
 }
 

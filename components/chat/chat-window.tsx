@@ -16,9 +16,17 @@ import {
   MoreVertical,
   ChevronRight,
   MessageSquare,
+  Ban,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Message {
   id: string;
@@ -70,6 +78,87 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  // Send typing presence with debounce
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTypingRef = useRef<number>(0);
+
+  const sendTypingPresence = useCallback(async () => {
+    if (!chat || !chat.whatsapp_instances) return;
+
+    const now = Date.now();
+    // Only send typing every 3 seconds
+    if (now - lastTypingRef.current < 3000) return;
+    lastTypingRef.current = now;
+
+    try {
+      await fetch("/api/whatsapp/chat/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceName: chat.whatsapp_instances.instance_name,
+          to: chat.remote_jid,
+          presence: "composing",
+        }),
+      });
+    } catch (error) {
+      // Silently fail - not critical
+    }
+  }, [chat]);
+
+  const sendStopTypingPresence = useCallback(async () => {
+    if (!chat || !chat.whatsapp_instances) return;
+
+    try {
+      await fetch("/api/whatsapp/chat/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceName: chat.whatsapp_instances.instance_name,
+          to: chat.remote_jid,
+          presence: "paused",
+        }),
+      });
+    } catch (error) {
+      // Silently fail
+    }
+  }, [chat]);
+
+  const handleTyping = useCallback(() => {
+    sendTypingPresence();
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing after 5 seconds
+    typingTimeoutRef.current = setTimeout(() => {
+      sendStopTypingPresence();
+    }, 5000);
+  }, [sendTypingPresence, sendStopTypingPresence]);
+
+  // Mark messages as read via API
+  const markAsRead = useCallback(async () => {
+    if (!chat || !chat.whatsapp_instances) return;
+
+    try {
+      await fetch("/api/whatsapp/chat/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceName: chat.whatsapp_instances.instance_name,
+          chatId: chat.id,
+        }),
+      });
+    } catch (error) {
+      // Fallback to local update only
+      await supabase
+        .from("chats")
+        .update({ unread_count: 0 })
+        .eq("id", chat.id);
+    }
+  }, [chat, supabase]);
+
   const loadChat = useCallback(async () => {
     if (!chatId) return;
 
@@ -107,15 +196,14 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
 
     setChat(data as unknown as Chat);
     setAvatarError(false);
-
-    // Mark as read
-    if (data.unread_count > 0) {
-      await supabase
-        .from("chats")
-        .update({ unread_count: 0 })
-        .eq("id", chatId);
-    }
   }, [chatId, supabase]);
+
+  // Mark as read when chat loads or when messages update
+  useEffect(() => {
+    if (chat && chat.unread_count > 0) {
+      markAsRead();
+    }
+  }, [chat?.id, chat?.unread_count, markAsRead]);
 
   const loadMessages = useCallback(async () => {
     if (!chatId) return;
@@ -321,18 +409,105 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   };
 
   const toggleArchive = async () => {
-    if (!chat) return;
+    if (!chat || !chat.whatsapp_instances) return;
 
     try {
-      await supabase
-        .from("chats")
-        .update({ archived: !chat.archived })
-        .eq("id", chat.id);
+      const response = await fetch("/api/whatsapp/chat/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceName: chat.whatsapp_instances.instance_name,
+          chatId: chat.id,
+          archive: !chat.archived,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to archive");
+      }
 
       toast.success(chat.archived ? "Conversa desarquivada" : "Conversa arquivada");
       setChat({ ...chat, archived: !chat.archived });
     } catch (error) {
       toast.error("Erro ao atualizar conversa");
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!chat || !chat.whatsapp_instances) return;
+
+    try {
+      const response = await fetch(
+        `/api/whatsapp/messages/${messageId}?instanceName=${chat.whatsapp_instances.instance_name}`,
+        { method: "DELETE" }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      toast.success("Mensagem apagada");
+      loadMessages();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao apagar mensagem");
+    }
+  };
+
+  const editMessage = async (messageId: string, newText: string) => {
+    if (!chat || !chat.whatsapp_instances) return;
+
+    try {
+      const response = await fetch(`/api/whatsapp/messages/${messageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceName: chat.whatsapp_instances.instance_name,
+          text: newText,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to edit");
+      }
+
+      toast.success("Mensagem editada");
+      loadMessages();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao editar mensagem");
+    }
+  };
+
+  const toggleBlock = async () => {
+    if (!chat || !chat.whatsapp_instances) return;
+
+    // For now, we don't track blocked status locally
+    // Just show a confirmation dialog
+    const confirmBlock = window.confirm(
+      "Tem certeza que deseja bloquear este contato?"
+    );
+
+    if (!confirmBlock) return;
+
+    try {
+      const response = await fetch("/api/whatsapp/chat/block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceName: chat.whatsapp_instances.instance_name,
+          number: chat.remote_jid,
+          status: "block",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to block");
+      }
+
+      toast.success("Contato bloqueado");
+    } catch (error) {
+      toast.error("Erro ao bloquear contato");
     }
   };
 
@@ -441,6 +616,33 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
               <Archive className="h-4 w-4" />
             )}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={toggleArchive}>
+                {chat.archived ? (
+                  <>
+                    <ArchiveRestore className="h-4 w-4 mr-2" />
+                    Desarquivar
+                  </>
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4 mr-2" />
+                    Arquivar
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={toggleBlock} className="text-destructive">
+                <Ban className="h-4 w-4 mr-2" />
+                Bloquear contato
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {showPanelButton && (
             <Button
               variant="ghost"
@@ -474,12 +676,15 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
                 {messages.map((message) => (
                   <MessageBubble
                     key={message.id}
+                    messageId={message.message_id}
                     content={message.content}
                     messageType={message.message_type}
                     mediaUrl={message.media_url}
                     fromMe={message.from_me}
                     status={message.status}
                     timestamp={message.timestamp}
+                    onDelete={message.from_me && !message.isOptimistic ? deleteMessage : undefined}
+                    onEdit={message.from_me && message.message_type === "text" && !message.isOptimistic ? editMessage : undefined}
                   />
                 ))}
                 <div ref={messagesEndRef} />
@@ -503,6 +708,7 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         <MessageInput
           onSendText={sendTextMessage}
           onSendMedia={sendMediaMessage}
+          onTyping={handleTyping}
           disabled={!isConnected}
         />
       )}

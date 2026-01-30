@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 interface MessageInputProps {
   onSendText: (message: string) => Promise<void>;
   onSendMedia: (file: File, type: "image" | "video" | "audio" | "document") => Promise<void>;
+  onTyping?: () => void;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -25,6 +26,7 @@ interface MessageInputProps {
 export function MessageInput({
   onSendText,
   onSendMedia,
+  onTyping,
   disabled = false,
   placeholder = "Digite uma mensagem...",
 }: MessageInputProps) {
@@ -196,7 +198,12 @@ export function MessageInput({
           <Textarea
             placeholder={selectedFile ? "Adicione uma legenda..." : placeholder}
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              if (e.target.value && onTyping) {
+                onTyping();
+              }
+            }}
             onKeyDown={handleKeyDown}
             disabled={disabled || sending}
             className={cn(

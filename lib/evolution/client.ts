@@ -86,6 +86,113 @@ export interface ProfilePictureResponse {
   url?: string;
 }
 
+// Chat Controller Types
+export interface CheckWhatsAppParams {
+  numbers: string[];
+}
+
+export interface ReadMessageKey {
+  remoteJid: string;
+  fromMe: boolean;
+  id: string;
+}
+
+export interface MarkMessageAsReadParams {
+  readMessages: ReadMessageKey[];
+}
+
+export interface ArchiveChatParams {
+  lastMessage: { key: ReadMessageKey };
+  chat: string;
+  archive: boolean;
+}
+
+export interface MarkChatUnreadParams {
+  lastMessage: { key: ReadMessageKey };
+  chat: string;
+}
+
+export interface DeleteMessageParams {
+  id: string;
+  remoteJid: string;
+  fromMe: boolean;
+  participant?: string;
+}
+
+export interface UpdateMessageParams {
+  number: string;
+  key: ReadMessageKey;
+  text: string;
+}
+
+export interface SendPresenceParams {
+  number: string;
+  delay?: number;
+  presence: "composing" | "recording" | "paused";
+}
+
+export interface UpdateBlockStatusParams {
+  number: string;
+  status: "block" | "unblock";
+}
+
+export interface FindContactsParams {
+  where?: { id?: string };
+}
+
+export interface FindMessagesParams {
+  where: { key: { remoteJid: string } };
+  page?: number;
+  offset?: number;
+}
+
+export interface WhatsAppNumberResult {
+  exists: boolean;
+  jid: string;
+  number: string;
+}
+
+export interface Contact {
+  id: string;
+  pushName?: string;
+  profilePictureUrl?: string;
+}
+
+export interface ChatInfo {
+  id: string;
+  name?: string;
+  unreadCount?: number;
+  lastMessage?: object;
+}
+
+// Profile Settings Types
+export interface ProfileData {
+  wuid?: string;
+  name?: string;
+  picture?: string;
+  status?: string;
+  isBusiness?: boolean;
+}
+
+export interface BusinessProfileData {
+  wuid?: string;
+  name?: string;
+  description?: string;
+  website?: string[];
+  email?: string;
+  address?: string;
+  category?: string;
+}
+
+export interface PrivacySettings {
+  readreceipts: "all" | "none";
+  profile: "all" | "contacts" | "contact_blacklist" | "none";
+  status: "all" | "contacts" | "contact_blacklist" | "none";
+  online: "all" | "match_last_seen";
+  last: "all" | "contacts" | "contact_blacklist" | "none";
+  groupadd: "all" | "contacts" | "contact_blacklist";
+}
+
 export interface EvolutionApiClient {
   testConnection(): Promise<EvolutionApiResponse<{ status: string }>>;
   createInstance(params: CreateInstanceParams): Promise<EvolutionApiResponse<InstanceData>>;
@@ -122,6 +229,30 @@ export interface EvolutionApiClient {
   setSettings(instanceName: string, settings: Partial<InstanceSettings>): Promise<EvolutionApiResponse<InstanceSettings>>;
   fetchProfilePictureUrl(instanceName: string, number: string): Promise<EvolutionApiResponse<ProfilePictureResponse>>;
   getBase64FromMediaMessage(instanceName: string, messageId: string, convertToMp4?: boolean): Promise<EvolutionApiResponse<{ base64: string; mimetype: string }>>;
+
+  // Chat Controller Methods
+  checkIsWhatsApp(instanceName: string, params: CheckWhatsAppParams): Promise<EvolutionApiResponse<WhatsAppNumberResult[]>>;
+  markMessageAsRead(instanceName: string, params: MarkMessageAsReadParams): Promise<EvolutionApiResponse<void>>;
+  markChatUnread(instanceName: string, params: MarkChatUnreadParams): Promise<EvolutionApiResponse<void>>;
+  archiveChat(instanceName: string, params: ArchiveChatParams): Promise<EvolutionApiResponse<void>>;
+  deleteMessageForEveryone(instanceName: string, params: DeleteMessageParams): Promise<EvolutionApiResponse<void>>;
+  updateMessage(instanceName: string, params: UpdateMessageParams): Promise<EvolutionApiResponse<void>>;
+  sendPresence(instanceName: string, params: SendPresenceParams): Promise<EvolutionApiResponse<void>>;
+  updateBlockStatus(instanceName: string, params: UpdateBlockStatusParams): Promise<EvolutionApiResponse<void>>;
+  findContacts(instanceName: string, params?: FindContactsParams): Promise<EvolutionApiResponse<Contact[]>>;
+  findMessages(instanceName: string, params: FindMessagesParams): Promise<EvolutionApiResponse<object[]>>;
+  findStatusMessage(instanceName: string, params: FindMessagesParams): Promise<EvolutionApiResponse<object[]>>;
+  findChats(instanceName: string): Promise<EvolutionApiResponse<ChatInfo[]>>;
+
+  // Profile Settings Methods
+  fetchProfile(instanceName: string, number?: string): Promise<EvolutionApiResponse<ProfileData>>;
+  fetchBusinessProfile(instanceName: string, number: string): Promise<EvolutionApiResponse<BusinessProfileData>>;
+  updateProfileName(instanceName: string, name: string): Promise<EvolutionApiResponse<void>>;
+  updateProfileStatus(instanceName: string, status: string): Promise<EvolutionApiResponse<void>>;
+  updateProfilePicture(instanceName: string, pictureUrl: string): Promise<EvolutionApiResponse<void>>;
+  removeProfilePicture(instanceName: string): Promise<EvolutionApiResponse<void>>;
+  fetchPrivacySettings(instanceName: string): Promise<EvolutionApiResponse<PrivacySettings>>;
+  updatePrivacySettings(instanceName: string, settings: Partial<PrivacySettings>): Promise<EvolutionApiResponse<void>>;
 }
 
 export function createEvolutionClient(credentials: EvolutionCredentials): EvolutionApiClient {
@@ -338,6 +469,232 @@ export function createEvolutionClient(credentials: EvolutionCredentials): Evolut
             },
             convertToMp4,
           }),
+        }
+      );
+    },
+
+    // Chat Controller Methods
+
+    async checkIsWhatsApp(
+      instanceName: string,
+      params: CheckWhatsAppParams
+    ): Promise<EvolutionApiResponse<WhatsAppNumberResult[]>> {
+      return evolutionFetch<WhatsAppNumberResult[]>(
+        `/chat/whatsappNumbers/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify(params),
+        }
+      );
+    },
+
+    async markMessageAsRead(
+      instanceName: string,
+      params: MarkMessageAsReadParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/chat/markMessageAsRead/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async markChatUnread(
+      instanceName: string,
+      params: MarkChatUnreadParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/chat/markChatUnread/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async archiveChat(
+      instanceName: string,
+      params: ArchiveChatParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/chat/archiveChat/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async deleteMessageForEveryone(
+      instanceName: string,
+      params: DeleteMessageParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(
+        `/chat/deleteMessageForEveryone/${instanceName}`,
+        {
+          method: "DELETE",
+          body: JSON.stringify(params),
+        }
+      );
+    },
+
+    async updateMessage(
+      instanceName: string,
+      params: UpdateMessageParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/chat/updateMessage/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async sendPresence(
+      instanceName: string,
+      params: SendPresenceParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/chat/sendPresence/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async updateBlockStatus(
+      instanceName: string,
+      params: UpdateBlockStatusParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(
+        `/message/updateBlockStatus/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify(params),
+        }
+      );
+    },
+
+    async findContacts(
+      instanceName: string,
+      params?: FindContactsParams
+    ): Promise<EvolutionApiResponse<Contact[]>> {
+      return evolutionFetch<Contact[]>(`/chat/findContacts/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params || {}),
+      });
+    },
+
+    async findMessages(
+      instanceName: string,
+      params: FindMessagesParams
+    ): Promise<EvolutionApiResponse<object[]>> {
+      return evolutionFetch<object[]>(`/chat/findMessages/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async findStatusMessage(
+      instanceName: string,
+      params: FindMessagesParams
+    ): Promise<EvolutionApiResponse<object[]>> {
+      return evolutionFetch<object[]>(
+        `/chat/findStatusMessage/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify(params),
+        }
+      );
+    },
+
+    async findChats(
+      instanceName: string
+    ): Promise<EvolutionApiResponse<ChatInfo[]>> {
+      return evolutionFetch<ChatInfo[]>(`/chat/findChats/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    },
+
+    // Profile Settings Methods
+
+    async fetchProfile(
+      instanceName: string,
+      number?: string
+    ): Promise<EvolutionApiResponse<ProfileData>> {
+      return evolutionFetch<ProfileData>(`/chat/fetchProfile/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify({ number: number || "" }),
+      });
+    },
+
+    async fetchBusinessProfile(
+      instanceName: string,
+      number: string
+    ): Promise<EvolutionApiResponse<BusinessProfileData>> {
+      return evolutionFetch<BusinessProfileData>(
+        `/chat/fetchBusinessProfile/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ number }),
+        }
+      );
+    },
+
+    async updateProfileName(
+      instanceName: string,
+      name: string
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/chat/updateProfileName/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+    },
+
+    async updateProfileStatus(
+      instanceName: string,
+      status: string
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/chat/updateProfileStatus/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+    },
+
+    async updateProfilePicture(
+      instanceName: string,
+      pictureUrl: string
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(
+        `/chat/updateProfilePicture/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ picture: pictureUrl }),
+        }
+      );
+    },
+
+    async removeProfilePicture(
+      instanceName: string
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(
+        `/chat/removeProfilePicture/${instanceName}`,
+        {
+          method: "DELETE",
+        }
+      );
+    },
+
+    async fetchPrivacySettings(
+      instanceName: string
+    ): Promise<EvolutionApiResponse<PrivacySettings>> {
+      return evolutionFetch<PrivacySettings>(
+        `/chat/fetchPrivacySettings/${instanceName}`,
+        {
+          method: "GET",
+        }
+      );
+    },
+
+    async updatePrivacySettings(
+      instanceName: string,
+      settings: Partial<PrivacySettings>
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(
+        `/chat/updatePrivacySettings/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify(settings),
         }
       );
     },
