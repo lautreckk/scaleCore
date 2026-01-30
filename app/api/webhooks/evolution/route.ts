@@ -102,10 +102,14 @@ async function getMediaBase64AndUpload(
     });
 
     // Get base64 from Evolution API
+    console.log(`[Media Base64] Calling Evolution API: ${config.url}/chat/getBase64FromMediaMessage/${instanceName}`);
+    console.log(`[Media Base64] Request body: { message: { key: { id: "${messageId}" } } }`);
+
     const result = await evolutionClient.getBase64FromMediaMessage(instanceName, messageId);
 
+    console.log(`[Media Base64] Response success: ${result.success}`);
     if (!result.success || !result.data?.base64) {
-      console.error("[Media Base64] Failed to get base64:", result.error);
+      console.error("[Media Base64] Failed to get base64:", JSON.stringify(result, null, 2));
       return null;
     }
 
@@ -452,6 +456,12 @@ export async function POST(request: NextRequest) {
           content = messageData.message.extendedTextMessage.text;
         } else if (messageData.message?.imageMessage) {
           console.log("[MESSAGE TYPE] imageMessage");
+          console.log("[IMAGE] Keys in imageMessage:", Object.keys(messageData.message.imageMessage));
+          console.log("[IMAGE] Has base64:", !!messageData.message.imageMessage.base64);
+          console.log("[IMAGE] Has url:", !!messageData.message.imageMessage.url);
+          if (messageData.message.imageMessage.base64) {
+            console.log("[IMAGE] base64 length:", messageData.message.imageMessage.base64.length);
+          }
           messageType = "image";
           content = messageData.message.imageMessage.caption || "";
           const imgMimetype = messageData.message.imageMessage.mimetype || "image/jpeg";
