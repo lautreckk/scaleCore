@@ -484,14 +484,14 @@ export async function POST(request: NextRequest) {
           }
           chat = newChat;
 
-          // Fetch profile picture asynchronously (don't wait)
+          // Fetch profile picture (wait for it to complete)
           if (newChat && instance.evolution_config_id) {
-            fetchAndSaveProfilePicture(
+            await fetchAndSaveProfilePicture(
               newChat.id,
               remoteJid,
               instance.evolution_config_id,
               instanceName
-            ).catch(console.error);
+            );
           }
         } else {
           // Update existing chat
@@ -514,12 +514,12 @@ export async function POST(request: NextRequest) {
               .single();
 
             if (chatData && !chatData.profile_picture_url) {
-              fetchAndSaveProfilePicture(
+              await fetchAndSaveProfilePicture(
                 chat.id,
                 remoteJid,
                 instance.evolution_config_id,
                 instanceName
-              ).catch(console.error);
+              );
             }
           }
         }
