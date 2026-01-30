@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
+  plan?: string;
 }
 
 const navigation = [
@@ -34,8 +35,22 @@ const navigation = [
   { name: "Configurações", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
   const pathname = usePathname();
+
+  const isActiveRoute = (href: string) => {
+    // Exact match
+    if (pathname === href) return true;
+
+    // For /settings, only match if not in a sub-route that has its own menu item
+    if (href === "/settings") {
+      return pathname.startsWith("/settings/") &&
+             !pathname.startsWith("/settings/integrations");
+    }
+
+    // For other routes, match if starts with href + "/"
+    return pathname.startsWith(href + "/");
+  };
 
   return (
     <>
@@ -50,7 +65,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-surface transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:z-auto",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-surface transform transition-transform duration-300 ease-in-out lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -77,7 +92,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <nav className="flex-1 overflow-y-auto p-4">
             <ul className="space-y-1">
               {navigation.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                const isActive = isActiveRoute(item.href);
                 return (
                   <li key={item.name}>
                     <Link
@@ -104,7 +119,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <div className="flex items-center gap-3 rounded-lg bg-surface-elevated p-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">Seu plano</p>
-                <p className="text-sm font-medium text-white truncate">Starter</p>
+                <p className="text-sm font-medium text-white truncate capitalize">{plan}</p>
               </div>
               <Link href="/settings/billing">
                 <Button size="sm" variant="outline" className="text-xs">

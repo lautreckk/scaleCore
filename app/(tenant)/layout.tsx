@@ -111,15 +111,15 @@ export default function TenantLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="lg:pl-64">
+    <div className="min-h-screen bg-background flex">
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} plan={tenantData.plan} />
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-64">
         <Header
           onMenuClick={() => setSidebarOpen(true)}
           user={userData}
           tenant={tenantData}
         />
-        <main className="p-4 lg:p-6">{children}</main>
+        <main className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

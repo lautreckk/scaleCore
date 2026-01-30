@@ -9,6 +9,38 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      evolution_api_configs: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          url: string
+          api_key_encrypted: string
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          name: string
+          url: string
+          api_key_encrypted: string
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          name?: string
+          url?: string
+          api_key_encrypted?: string
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
       super_admins: {
         Row: {
           id: string
@@ -290,6 +322,7 @@ export interface Database {
           qrcode: string | null
           color: string | null
           evolution_api_url: string | null
+          evolution_config_id: string | null
           total_messages_sent: number | null
           last_connected_at: string | null
           created_at: string | null
@@ -305,6 +338,7 @@ export interface Database {
           qrcode?: string | null
           color?: string | null
           evolution_api_url?: string | null
+          evolution_config_id?: string | null
           total_messages_sent?: number | null
           last_connected_at?: string | null
           created_at?: string | null
@@ -320,6 +354,7 @@ export interface Database {
           qrcode?: string | null
           color?: string | null
           evolution_api_url?: string | null
+          evolution_config_id?: string | null
           total_messages_sent?: number | null
           last_connected_at?: string | null
           created_at?: string | null
@@ -811,6 +846,53 @@ export interface Database {
           processed?: boolean | null
           error_message?: string | null
           received_at?: string | null
+        }
+      }
+      webhook_forwards: {
+        Row: {
+          id: string
+          instance_id: string
+          tenant_id: string
+          name: string
+          target_url: string
+          headers: Json | null
+          events: string[] | null
+          is_active: boolean | null
+          last_success_at: string | null
+          last_error_at: string | null
+          last_error_message: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          instance_id: string
+          tenant_id: string
+          name: string
+          target_url: string
+          headers?: Json | null
+          events?: string[] | null
+          is_active?: boolean | null
+          last_success_at?: string | null
+          last_error_at?: string | null
+          last_error_message?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          instance_id?: string
+          tenant_id?: string
+          name?: string
+          target_url?: string
+          headers?: Json | null
+          events?: string[] | null
+          is_active?: boolean | null
+          last_success_at?: string | null
+          last_error_at?: string | null
+          last_error_message?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
       }
     }

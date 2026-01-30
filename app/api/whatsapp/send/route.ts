@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { evolutionApi } from "@/lib/evolution/client";
+import { getEvolutionClientByInstanceName } from "@/lib/evolution/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,31 +22,39 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { instanceName, to, message, mediaUrl, mediaType } = body;
+    const { instanceName, to, message, mediaUrl, mediaType, fileName } = body;
 
-    if (!instanceName || !to || !message) {
+    // Validate: need either message or mediaUrl
+    if (!instanceName || !to || (!message && !mediaUrl)) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Verify instance belongs to tenant
-    const { data: instance } = await supabase
-      .from("whatsapp_instances")
-      .select("id, status")
-      .eq("instance_name", instanceName)
-      .eq("tenant_id", tenantUser.tenant_id)
-      .single();
+    // Get the Evolution client for this instance
+    const clientData = await getEvolutionClientByInstanceName(
+      instanceName,
+      tenantUser.tenant_id
+    );
 
-    if (!instance) {
+    if (!clientData) {
       return NextResponse.json(
-        { error: "Instance not found" },
+        { error: "Instance not found or no Evolution server configured" },
         { status: 404 }
       );
     }
 
-    if (instance.status !== "connected") {
+    const { client, instance } = clientData;
+
+    // Verify instance is connected
+    const { data: instanceData } = await supabase
+      .from("whatsapp_instances")
+      .select("status")
+      .eq("id", instance.id)
+      .single();
+
+    if (!instanceData || instanceData.status !== "connected") {
       return NextResponse.json(
         { error: "Instance not connected" },
         { status: 400 }
@@ -74,15 +82,16 @@ export async function POST(request: NextRequest) {
     // Send message via Evolution API
     let result;
     if (mediaUrl && mediaType) {
-      result = await evolutionApi.sendMedia(instanceName, {
+      result = await client.sendMedia(instanceName, {
         number: phoneNumber,
         mediatype: mediaType,
-        mimetype: getMimeType(mediaType),
-        caption: message,
+        mimetype: getMimeType(mediaType, fileName),
+        caption: message || "",
         media: mediaUrl,
+        fileName: fileName,
       });
     } else {
-      result = await evolutionApi.sendText(instanceName, {
+      result = await client.sendText(instanceName, {
         number: phoneNumber,
         text: message,
       });
@@ -117,14 +126,48 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getMimeType(mediaType: string): string {
+function getMimeType(mediaType: string, fileName?: string): string {
+  // Try to determine from filename extension
+  if (fileName) {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const mimeMap: Record<string, string> = {
+      // Images
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      webp: "image/webp",
+      // Videos
+      mp4: "video/mp4",
+      mov: "video/quicktime",
+      webm: "video/webm",
+      // Audio
+      mp3: "audio/mpeg",
+      ogg: "audio/ogg",
+      wav: "audio/wav",
+      m4a: "audio/mp4",
+      // Documents
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      xls: "application/vnd.ms-excel",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      txt: "text/plain",
+      zip: "application/zip",
+    };
+    if (ext && mimeMap[ext]) {
+      return mimeMap[ext];
+    }
+  }
+
+  // Fallback based on mediaType
   switch (mediaType) {
     case "image":
       return "image/jpeg";
     case "video":
       return "video/mp4";
     case "audio":
-      return "audio/mpeg";
+      return "audio/ogg";
     case "document":
       return "application/pdf";
     default:

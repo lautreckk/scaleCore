@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { evolutionApi } from "@/lib/evolution/client";
+import { getEvolutionClientForConfig } from "@/lib/evolution/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,12 +22,45 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, evolutionConfigId } = body;
 
     if (!name) {
       return NextResponse.json(
         { error: "Instance name is required" },
         { status: 400 }
+      );
+    }
+
+    if (!evolutionConfigId) {
+      return NextResponse.json(
+        { error: "Evolution server is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify the evolution config belongs to the tenant
+    const { data: evolutionConfig } = await supabase
+      .from("evolution_api_configs")
+      .select("id")
+      .eq("id", evolutionConfigId)
+      .eq("tenant_id", tenantUser.tenant_id)
+      .eq("is_active", true)
+      .single();
+
+    if (!evolutionConfig) {
+      return NextResponse.json(
+        { error: "Invalid Evolution server" },
+        { status: 400 }
+      );
+    }
+
+    // Get the Evolution API client for this config
+    const evolutionClient = await getEvolutionClientForConfig(evolutionConfigId);
+
+    if (!evolutionClient) {
+      return NextResponse.json(
+        { error: "Failed to connect to Evolution server" },
+        { status: 500 }
       );
     }
 
@@ -37,7 +70,7 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9-]/g, "-");
 
     // Create instance in Evolution API
-    const result = await evolutionApi.createInstance({
+    const result = await evolutionClient.createInstance({
       instanceName,
       token: crypto.randomUUID(),
       qrcode: true,
@@ -52,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     // Configure webhook
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin")}/api/webhooks/evolution`;
-    await evolutionApi.setWebhook(instanceName, {
+    await evolutionClient.setWebhook(instanceName, {
       url: webhookUrl,
       webhook_by_events: false,
       webhook_base64: true,
@@ -64,6 +97,26 @@ export async function POST(request: NextRequest) {
         "SEND_MESSAGE",
       ],
     });
+
+    // Save to database
+    const { error: dbError } = await supabase.from("whatsapp_instances").insert({
+      tenant_id: tenantUser.tenant_id,
+      name,
+      instance_name: instanceName,
+      instance_token: crypto.randomUUID(),
+      evolution_config_id: evolutionConfigId,
+      status: "disconnected",
+    });
+
+    if (dbError) {
+      console.error("Error saving instance to database:", dbError);
+      // Try to delete the instance from Evolution API
+      await evolutionClient.deleteInstance(instanceName);
+      return NextResponse.json(
+        { error: "Failed to save instance" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -100,7 +153,10 @@ export async function GET() {
 
     const { data: instances, error } = await supabase
       .from("whatsapp_instances")
-      .select("*")
+      .select(`
+        *,
+        evolution_config:evolution_api_configs(id, name)
+      `)
       .eq("tenant_id", tenantUser.tenant_id)
       .order("created_at", { ascending: false });
 

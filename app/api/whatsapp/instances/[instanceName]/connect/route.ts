@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { evolutionApi } from "@/lib/evolution/client";
+import { getEvolutionClientByInstanceName } from "@/lib/evolution/config";
 
 export async function POST(
   request: NextRequest,
@@ -27,19 +27,23 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: instance } = await supabase
-      .from("whatsapp_instances")
-      .select("id")
-      .eq("instance_name", instanceName)
-      .eq("tenant_id", tenantUser.tenant_id)
-      .single();
+    // Get the Evolution client for this instance
+    const clientData = await getEvolutionClientByInstanceName(
+      instanceName,
+      tenantUser.tenant_id
+    );
 
-    if (!instance) {
-      return NextResponse.json({ error: "Instance not found" }, { status: 404 });
+    if (!clientData) {
+      return NextResponse.json(
+        { error: "Instance not found or no Evolution server configured" },
+        { status: 404 }
+      );
     }
 
+    const { client, instance } = clientData;
+
     // Get QR code from Evolution API
-    const result = await evolutionApi.getQRCode(instanceName);
+    const result = await client.getQRCode(instanceName);
 
     if (!result.success) {
       return NextResponse.json(

@@ -6,6 +6,80 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+interface WebhookForward {
+  id: string;
+  target_url: string;
+  headers: Record<string, string> | null;
+  events: string[] | null;
+  is_active: boolean;
+}
+
+async function forwardWebhookToTargets(
+  instanceId: string,
+  event: string,
+  payload: unknown
+) {
+  try {
+    const { data: forwards } = await supabase
+      .from("webhook_forwards")
+      .select("id, target_url, headers, events, is_active")
+      .eq("instance_id", instanceId)
+      .eq("is_active", true);
+
+    if (!forwards || forwards.length === 0) return;
+
+    const forwardPromises = forwards.map(async (forward: WebhookForward) => {
+      // Check if this forward should receive this event
+      if (forward.events && forward.events.length > 0 && !forward.events.includes(event)) {
+        return;
+      }
+
+      try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          ...(forward.headers || {}),
+        };
+
+        const response = await fetch(forward.target_url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+          await supabase
+            .from("webhook_forwards")
+            .update({ last_success_at: new Date().toISOString() })
+            .eq("id", forward.id);
+        } else {
+          const errorText = await response.text().catch(() => "Unknown error");
+          await supabase
+            .from("webhook_forwards")
+            .update({
+              last_error_at: new Date().toISOString(),
+              last_error_message: `HTTP ${response.status}: ${errorText.slice(0, 500)}`,
+            })
+            .eq("id", forward.id);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        await supabase
+          .from("webhook_forwards")
+          .update({
+            last_error_at: new Date().toISOString(),
+            last_error_message: errorMessage.slice(0, 500),
+          })
+          .eq("id", forward.id);
+      }
+    });
+
+    // Execute all forwards in parallel without waiting
+    Promise.all(forwardPromises).catch(console.error);
+  } catch (error) {
+    console.error("Error forwarding webhooks:", error);
+  }
+}
+
 interface EvolutionWebhookPayload {
   event: string;
   instance: string;
@@ -267,6 +341,9 @@ export async function POST(request: NextRequest) {
       default:
         console.log(`Unhandled event: ${event}`);
     }
+
+    // Forward webhook to configured targets (async, non-blocking)
+    forwardWebhookToTargets(instance.id, event, payload);
 
     return NextResponse.json({ success: true });
   } catch (error) {

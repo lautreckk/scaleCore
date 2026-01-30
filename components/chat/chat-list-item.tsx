@@ -1,0 +1,92 @@
+"use client";
+
+import { cn, formatRelativeTime } from "@/lib/utils";
+
+interface ChatListItemProps {
+  id: string;
+  contactName: string | null;
+  remoteJid: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  instanceName: string | null;
+  instanceColor: string | null;
+  leadName: string | null;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+export function ChatListItem({
+  contactName,
+  remoteJid,
+  lastMessage,
+  lastMessageAt,
+  unreadCount,
+  instanceName,
+  instanceColor,
+  leadName,
+  isSelected,
+  onClick,
+}: ChatListItemProps) {
+  const formatPhoneNumber = (jid: string) => {
+    const phone = jid.replace("@s.whatsapp.net", "").replace("@g.us", "");
+    if (phone.length === 13 && phone.startsWith("55")) {
+      return `+${phone.slice(0, 2)} (${phone.slice(2, 4)}) ${phone.slice(4, 9)}-${phone.slice(9)}`;
+    }
+    return phone;
+  };
+
+  const displayName = contactName || leadName || formatPhoneNumber(remoteJid);
+  const initial = displayName.charAt(0).toUpperCase();
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors",
+        "hover:bg-muted/50",
+        isSelected && "bg-primary/10 hover:bg-primary/10",
+        unreadCount > 0 && "bg-muted/30"
+      )}
+    >
+      {/* Avatar */}
+      <div className="relative flex-shrink-0">
+        <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
+          {initial}
+        </div>
+        {instanceColor && (
+          <div
+            className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-background"
+            style={{ backgroundColor: instanceColor }}
+            title={instanceName || undefined}
+          />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium text-white truncate">{displayName}</span>
+          {lastMessageAt && (
+            <span className={cn(
+              "text-xs flex-shrink-0",
+              unreadCount > 0 ? "text-primary" : "text-muted-foreground"
+            )}>
+              {formatRelativeTime(lastMessageAt)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <span className="text-sm text-muted-foreground truncate">
+            {lastMessage || "Sem mensagens"}
+          </span>
+          {unreadCount > 0 && (
+            <span className="h-5 min-w-[20px] rounded-full bg-primary text-white text-xs font-medium flex items-center justify-center px-1.5 flex-shrink-0">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
