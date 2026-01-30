@@ -71,6 +71,68 @@ async function fetchAndSaveProfilePicture(
   }
 }
 
+// Helper function to get base64 from Evolution API and upload to storage
+async function getMediaBase64AndUpload(
+  evolutionConfigId: string,
+  instanceName: string,
+  messageId: string,
+  mimetype: string,
+  tenantId: string
+): Promise<string | null> {
+  try {
+    console.log(`[Media Base64] Fetching base64 for message ${messageId}`);
+
+    // Get evolution config
+    const { data: config } = await supabase
+      .from("evolution_api_configs")
+      .select("url, api_key_encrypted")
+      .eq("id", evolutionConfigId)
+      .single();
+
+    if (!config) {
+      console.log("[Media Base64] Evolution config not found");
+      return null;
+    }
+
+    // Create Evolution client
+    const apiKey = decrypt(config.api_key_encrypted);
+    const evolutionClient = createEvolutionClient({
+      url: config.url,
+      apiKey,
+    });
+
+    // Get base64 from Evolution API
+    const result = await evolutionClient.getBase64FromMediaMessage(instanceName, messageId);
+
+    if (!result.success || !result.data?.base64) {
+      console.error("[Media Base64] Failed to get base64:", result.error);
+      return null;
+    }
+
+    console.log(`[Media Base64] Got base64, length: ${result.data.base64.length}, mimetype: ${result.data.mimetype || mimetype}`);
+
+    // Use mimetype from response if available
+    const finalMimetype = result.data.mimetype || mimetype;
+
+    // Upload to storage
+    const uploadedUrl = await uploadMediaToStorage(
+      result.data.base64,
+      finalMimetype,
+      messageId,
+      tenantId
+    );
+
+    if (uploadedUrl) {
+      console.log(`[Media Base64] Uploaded to storage: ${uploadedUrl}`);
+    }
+
+    return uploadedUrl;
+  } catch (error) {
+    console.error("[Media Base64] Error:", error);
+    return null;
+  }
+}
+
 interface WebhookForward {
   id: string;
   target_url: string;
@@ -258,45 +320,6 @@ async function uploadBufferToStorage(
   }
 }
 
-// Helper function to download media from URL and upload to Supabase Storage
-async function downloadAndUploadMedia(
-  url: string,
-  mimetype: string,
-  messageId: string,
-  tenantId: string
-): Promise<string | null> {
-  try {
-    console.log(`[Media] Downloading from URL: ${url.substring(0, 100)}...`);
-
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "WhatsApp/2.0",
-      },
-    });
-
-    if (!response.ok) {
-      console.error(`[Media] Failed to download: ${response.status}`);
-      return null;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    console.log(`[Media] Downloaded ${buffer.length} bytes, uploading to storage...`);
-
-    const uploadedUrl = await uploadBufferToStorage(buffer, mimetype, messageId, tenantId);
-
-    if (uploadedUrl) {
-      console.log(`[Media] Uploaded successfully: ${uploadedUrl}`);
-    }
-
-    return uploadedUrl;
-  } catch (error) {
-    console.error("[Media] Error downloading/uploading:", error);
-    return null;
-  }
-}
-
 // Helper function to upload base64 media to Supabase Storage
 async function uploadMediaToStorage(
   base64Data: string,
@@ -433,7 +456,7 @@ export async function POST(request: NextRequest) {
           content = messageData.message.imageMessage.caption || "";
           const imgMimetype = messageData.message.imageMessage.mimetype || "image/jpeg";
 
-          // Try base64 first, then download from URL
+          // Try base64 first, then fetch via Evolution API
           if (messageData.message.imageMessage.base64) {
             mediaUrl = await uploadMediaToStorage(
               messageData.message.imageMessage.base64,
@@ -441,11 +464,13 @@ export async function POST(request: NextRequest) {
               messageId,
               tenantId
             );
-          } else if (messageData.message.imageMessage.url) {
-            mediaUrl = await downloadAndUploadMedia(
-              messageData.message.imageMessage.url,
-              imgMimetype,
+          } else if (instance.evolution_config_id) {
+            // Fetch base64 via Evolution API (URLs from WhatsApp are encrypted)
+            mediaUrl = await getMediaBase64AndUpload(
+              instance.evolution_config_id,
+              instanceName,
               messageId,
+              imgMimetype,
               tenantId
             );
           }
@@ -461,11 +486,12 @@ export async function POST(request: NextRequest) {
               messageId,
               tenantId
             );
-          } else if (messageData.message.videoMessage.url) {
-            mediaUrl = await downloadAndUploadMedia(
-              messageData.message.videoMessage.url,
-              vidMimetype,
+          } else if (instance.evolution_config_id) {
+            mediaUrl = await getMediaBase64AndUpload(
+              instance.evolution_config_id,
+              instanceName,
               messageId,
+              vidMimetype,
               tenantId
             );
           }
@@ -482,11 +508,12 @@ export async function POST(request: NextRequest) {
               messageId,
               tenantId
             );
-          } else if (messageData.message.audioMessage.url) {
-            mediaUrl = await downloadAndUploadMedia(
-              messageData.message.audioMessage.url,
-              audMimetype,
+          } else if (instance.evolution_config_id) {
+            mediaUrl = await getMediaBase64AndUpload(
+              instance.evolution_config_id,
+              instanceName,
               messageId,
+              audMimetype,
               tenantId
             );
           }
@@ -502,11 +529,12 @@ export async function POST(request: NextRequest) {
               messageId,
               tenantId
             );
-          } else if (messageData.message.documentMessage.url) {
-            mediaUrl = await downloadAndUploadMedia(
-              messageData.message.documentMessage.url,
-              docMimetype,
+          } else if (instance.evolution_config_id) {
+            mediaUrl = await getMediaBase64AndUpload(
+              instance.evolution_config_id,
+              instanceName,
               messageId,
+              docMimetype,
               tenantId
             );
           }
@@ -522,11 +550,12 @@ export async function POST(request: NextRequest) {
               messageId,
               tenantId
             );
-          } else if (messageData.message.stickerMessage.url) {
-            mediaUrl = await downloadAndUploadMedia(
-              messageData.message.stickerMessage.url,
-              stickerMimetype,
+          } else if (instance.evolution_config_id) {
+            mediaUrl = await getMediaBase64AndUpload(
+              instance.evolution_config_id,
+              instanceName,
               messageId,
+              stickerMimetype,
               tenantId
             );
           }

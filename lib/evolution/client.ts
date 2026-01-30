@@ -121,6 +121,7 @@ export interface EvolutionApiClient {
   getSettings(instanceName: string): Promise<EvolutionApiResponse<InstanceSettings>>;
   setSettings(instanceName: string, settings: Partial<InstanceSettings>): Promise<EvolutionApiResponse<InstanceSettings>>;
   fetchProfilePictureUrl(instanceName: string, number: string): Promise<EvolutionApiResponse<ProfilePictureResponse>>;
+  getBase64FromMediaMessage(instanceName: string, messageId: string, convertToMp4?: boolean): Promise<EvolutionApiResponse<{ base64: string; mimetype: string }>>;
 }
 
 export function createEvolutionClient(credentials: EvolutionCredentials): EvolutionApiClient {
@@ -318,6 +319,27 @@ export function createEvolutionClient(credentials: EvolutionCredentials): Evolut
         method: "POST",
         body: JSON.stringify({ number }),
       });
+    },
+
+    async getBase64FromMediaMessage(
+      instanceName: string,
+      messageId: string,
+      convertToMp4: boolean = false
+    ): Promise<EvolutionApiResponse<{ base64: string; mimetype: string }>> {
+      return evolutionFetch<{ base64: string; mimetype: string }>(
+        `/chat/getBase64FromMediaMessage/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            message: {
+              key: {
+                id: messageId,
+              },
+            },
+            convertToMp4,
+          }),
+        }
+      );
     },
   };
 }
