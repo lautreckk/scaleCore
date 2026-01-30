@@ -409,11 +409,11 @@ export async function POST(request: NextRequest) {
           if (text && text.trim()) return text;
           const preview = (() => {
             switch (type) {
-              case "image": return "📷 Imagem";
-              case "video": return "🎬 Vídeo";
-              case "audio": return "🎵 Áudio";
-              case "document": return "📄 Documento";
-              case "sticker": return "🎭 Sticker";
+              case "image": return "[Imagem]";
+              case "video": return "[Video]";
+              case "audio": return "[Audio]";
+              case "document": return "[Documento]";
+              case "sticker": return "[Sticker]";
               default: return "";
             }
           })();
@@ -595,6 +595,7 @@ export async function POST(request: NextRequest) {
           }
         } else {
           // Update existing chat
+          console.log(`[BEFORE PREVIEW] messageType=${messageType}, content="${content}", mediaUrl=${mediaUrl}`);
           const previewText = getLastMessagePreview(messageType, content);
           console.log(`[Chat Update] chatId=${chat.id}, messageType=${messageType}, content="${content}", preview="${previewText}", fromMe=${fromMe}`);
 
