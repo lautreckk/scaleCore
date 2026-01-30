@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatListItem } from "./chat-list-item";
-import { InstanceFilter } from "./instance-filter";
+import { InstanceDropdown, type InstanceWithUnread } from "./instance-dropdown";
 import { Search, Archive, MessageSquare, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ interface Chat {
   id: string;
   remote_jid: string;
   contact_name: string | null;
+  profile_picture_url: string | null;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
@@ -49,7 +50,33 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
   const [showArchived, setShowArchived] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [instancesWithUnread, setInstancesWithUnread] = useState<InstanceWithUnread[]>([]);
   const supabase = createClient();
+
+  const loadUnreadCounts = useCallback(async () => {
+    if (!tenantId) return;
+
+    const { data: unreadChats } = await supabase
+      .from("chats")
+      .select("instance_id, unread_count")
+      .eq("tenant_id", tenantId)
+      .eq("archived", false)
+      .gt("unread_count", 0);
+
+    const countByInstance = (unreadChats || []).reduce((acc, chat) => {
+      if (chat.instance_id) {
+        acc[chat.instance_id] = (acc[chat.instance_id] || 0) + chat.unread_count;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const instancesData: InstanceWithUnread[] = instances.map((instance) => ({
+      ...instance,
+      unreadCount: countByInstance[instance.id] || 0,
+    }));
+
+    setInstancesWithUnread(instancesData);
+  }, [tenantId, instances, supabase]);
 
   useEffect(() => {
     const loadTenant = async () => {
@@ -70,6 +97,13 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
     loadTenant();
   }, [supabase]);
 
+  // Load unread counts when tenant or instances change
+  useEffect(() => {
+    if (tenantId && instances.length > 0) {
+      loadUnreadCounts();
+    }
+  }, [tenantId, instances, loadUnreadCounts]);
+
   useEffect(() => {
     if (!tenantId) return;
 
@@ -80,6 +114,7 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
           id,
           remote_jid,
           contact_name,
+          profile_picture_url,
           last_message,
           last_message_at,
           unread_count,
@@ -113,29 +148,39 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
       .channel("chats-list-changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "chats" },
-        () => {
+        {
+          event: "*",
+          schema: "public",
+          table: "chats",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        (payload) => {
+          console.log("Chat realtime event:", payload);
           loadChats();
+          loadUnreadCounts();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Chat subscription status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, tenantId, search, showArchived, selectedInstanceId]);
+  }, [supabase, tenantId, search, showArchived, selectedInstanceId, loadUnreadCounts]);
 
-  const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
+  const totalUnread = instancesWithUnread.reduce((sum, instance) => sum + instance.unreadCount, 0);
+  const filteredUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">Conversas</h2>
-          {totalUnread > 0 && (
+          {filteredUnread > 0 && (
             <span className="h-6 min-w-[24px] rounded-full bg-primary text-white text-xs font-medium flex items-center justify-center px-2">
-              {totalUnread > 99 ? "99+" : totalUnread}
+              {filteredUnread > 99 ? "99+" : filteredUnread}
             </span>
           )}
         </div>
@@ -151,12 +196,13 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
           />
         </div>
 
-        {/* Instance Filter */}
+        {/* Instance Dropdown */}
         {instances.length > 1 && (
-          <InstanceFilter
-            instances={instances}
+          <InstanceDropdown
+            instances={instancesWithUnread}
             selectedInstanceId={selectedInstanceId}
             onSelect={setSelectedInstanceId}
+            totalUnread={totalUnread}
           />
         )}
 
@@ -196,6 +242,7 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
                 key={chat.id}
                 id={chat.id}
                 contactName={chat.contact_name}
+                profilePictureUrl={chat.profile_picture_url}
                 remoteJid={chat.remote_jid}
                 lastMessage={chat.last_message}
                 lastMessageAt={chat.last_message_at}

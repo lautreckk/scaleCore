@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ interface Chat {
   id: string;
   remote_jid: string;
   contact_name: string | null;
+  profile_picture_url: string | null;
   unread_count: number;
   archived: boolean;
   whatsapp_instances: {
@@ -61,6 +62,7 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -86,11 +88,14 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
           table: "messages",
           filter: `chat_id=eq.${chatId}`,
         },
-        () => {
+        (payload) => {
+          console.log("Message realtime event:", payload);
           loadMessages();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Message subscription status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -125,6 +130,7 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         id,
         remote_jid,
         contact_name,
+        profile_picture_url,
         unread_count,
         archived,
         whatsapp_instances(id, instance_name, name, status, color),
@@ -140,6 +146,7 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
     }
 
     setChat(data as unknown as Chat);
+    setAvatarError(false);
 
     // Mark as read
     if (data.unread_count > 0) {
@@ -303,15 +310,24 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const displayName = chat.contact_name || chat.leads?.name || formatPhoneNumber(chat.remote_jid);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+      <div className="flex items-center justify-between pl-12 md:pl-14 pr-12 py-3 border-b border-border bg-card">
         <div className="flex items-center gap-3 min-w-0">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
+            {chat.profile_picture_url && !avatarError ? (
+              <img
+                src={chat.profile_picture_url}
+                alt={displayName}
+                className="h-10 w-10 rounded-full object-cover"
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
             {chat.whatsapp_instances?.color && (
               <div
                 className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background"
@@ -367,34 +383,38 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Send className="h-8 w-8 text-primary" />
-            </div>
-            <p className="text-muted-foreground">Nenhuma mensagem ainda</p>
-            <p className="text-sm text-muted-foreground">
-              Envie a primeira mensagem para iniciar a conversa
-            </p>
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full w-full">
+          <div className="p-4 overflow-x-hidden">
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center min-h-[300px]">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Send className="h-8 w-8 text-primary" />
+                </div>
+                <p className="text-muted-foreground">Nenhuma mensagem ainda</p>
+                <p className="text-sm text-muted-foreground">
+                  Envie a primeira mensagem para iniciar a conversa
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {messages.map((message) => (
+                  <MessageBubble
+                    key={message.id}
+                    content={message.content}
+                    messageType={message.message_type}
+                    mediaUrl={message.media_url}
+                    fromMe={message.from_me}
+                    status={message.status}
+                    timestamp={message.timestamp}
+                  />
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-3">
-            {messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                content={message.content}
-                messageType={message.message_type}
-                mediaUrl={message.media_url}
-                fromMe={message.from_me}
-                status={message.status}
-                timestamp={message.timestamp}
-              />
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </ScrollArea>
+        </ScrollArea>
+      </div>
 
       {/* Input */}
       {!isConnected ? (

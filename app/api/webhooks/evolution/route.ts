@@ -1,10 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createEvolutionClient } from "@/lib/evolution/client";
+import { decrypt } from "@/lib/encryption";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// Helper function to fetch and save profile picture
+async function fetchAndSaveProfilePicture(
+  chatId: string,
+  remoteJid: string,
+  evolutionConfigId: string,
+  instanceName: string
+) {
+  try {
+    // Get evolution config
+    const { data: config } = await supabase
+      .from("evolution_api_configs")
+      .select("url, api_key_encrypted")
+      .eq("id", evolutionConfigId)
+      .single();
+
+    if (!config) {
+      console.log("Evolution config not found for profile picture");
+      return;
+    }
+
+    // Create Evolution client
+    const apiKey = decrypt(config.api_key_encrypted);
+    const evolutionClient = createEvolutionClient({
+      url: config.url,
+      apiKey,
+    });
+
+    // Extract phone number from JID
+    const phoneNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@g.us", "");
+
+    // Fetch profile picture
+    const result = await evolutionClient.fetchProfilePictureUrl(instanceName, phoneNumber);
+
+    if (result.success && result.data) {
+      const pictureUrl = result.data.profilePictureUrl || result.data.wpiUrl || result.data.url;
+
+      if (pictureUrl) {
+        await supabase
+          .from("chats")
+          .update({ profile_picture_url: pictureUrl })
+          .eq("id", chatId);
+
+        console.log(`Profile picture saved for chat ${chatId}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching profile picture:", error);
+  }
+}
 
 interface WebhookForward {
   id: string;
@@ -106,22 +158,97 @@ interface MessageData {
     imageMessage?: {
       url?: string;
       caption?: string;
+      mimetype?: string;
+      base64?: string;
     };
     videoMessage?: {
       url?: string;
       caption?: string;
+      mimetype?: string;
+      base64?: string;
     };
     audioMessage?: {
       url?: string;
+      mimetype?: string;
+      base64?: string;
+      ptt?: boolean;
     };
     documentMessage?: {
       url?: string;
       fileName?: string;
+      mimetype?: string;
+      base64?: string;
+    };
+    stickerMessage?: {
+      url?: string;
+      mimetype?: string;
+      base64?: string;
     };
   };
   messageType?: string;
   messageTimestamp?: number | string;
   status?: string;
+}
+
+// Helper function to upload base64 media to Supabase Storage
+async function uploadMediaToStorage(
+  base64Data: string,
+  mimetype: string,
+  messageId: string,
+  tenantId: string
+): Promise<string | null> {
+  try {
+    // Remove data URL prefix if present
+    const base64Content = base64Data.replace(/^data:[^;]+;base64,/, "");
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(base64Content, "base64");
+
+    // Determine file extension from mimetype
+    const extensionMap: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/png": "png",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "video/mp4": "mp4",
+      "video/3gpp": "3gp",
+      "audio/ogg": "ogg",
+      "audio/mpeg": "mp3",
+      "audio/mp4": "m4a",
+      "audio/opus": "opus",
+      "application/pdf": "pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    };
+
+    const extension = extensionMap[mimetype] || mimetype.split("/")[1] || "bin";
+    const fileName = `${tenantId}/${Date.now()}-${messageId}.${extension}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from("chat-media")
+      .upload(fileName, buffer, {
+        contentType: mimetype,
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("Error uploading media to storage:", error);
+      return null;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("chat-media")
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error("Error processing media upload:", error);
+    return null;
+  }
 }
 
 interface ConnectionData {
@@ -198,6 +325,21 @@ export async function POST(request: NextRequest) {
         const fromMe = key.fromMe;
         const messageId = key.id;
 
+        // Log message data for debugging
+        console.log("Message data keys:", Object.keys(messageData));
+        if (messageData.message) {
+          console.log("Message object keys:", Object.keys(messageData.message));
+          // Check if base64 is present in any media message
+          if (messageData.message.imageMessage) {
+            console.log("imageMessage keys:", Object.keys(messageData.message.imageMessage));
+            console.log("Has base64:", !!messageData.message.imageMessage.base64);
+          }
+          if (messageData.message.audioMessage) {
+            console.log("audioMessage keys:", Object.keys(messageData.message.audioMessage));
+            console.log("Has base64:", !!messageData.message.audioMessage.base64);
+          }
+        }
+
         // Extract message content
         let content = "";
         let messageType = "text";
@@ -210,18 +352,77 @@ export async function POST(request: NextRequest) {
         } else if (messageData.message?.imageMessage) {
           messageType = "image";
           content = messageData.message.imageMessage.caption || "";
-          mediaUrl = messageData.message.imageMessage.url || null;
+
+          // Try to upload base64 media to storage, fallback to original URL
+          if (messageData.message.imageMessage.base64) {
+            const uploadedUrl = await uploadMediaToStorage(
+              messageData.message.imageMessage.base64,
+              messageData.message.imageMessage.mimetype || "image/jpeg",
+              messageId,
+              tenantId
+            );
+            mediaUrl = uploadedUrl || messageData.message.imageMessage.url || null;
+          } else {
+            mediaUrl = messageData.message.imageMessage.url || null;
+          }
         } else if (messageData.message?.videoMessage) {
           messageType = "video";
           content = messageData.message.videoMessage.caption || "";
-          mediaUrl = messageData.message.videoMessage.url || null;
+
+          if (messageData.message.videoMessage.base64) {
+            const uploadedUrl = await uploadMediaToStorage(
+              messageData.message.videoMessage.base64,
+              messageData.message.videoMessage.mimetype || "video/mp4",
+              messageId,
+              tenantId
+            );
+            mediaUrl = uploadedUrl || messageData.message.videoMessage.url || null;
+          } else {
+            mediaUrl = messageData.message.videoMessage.url || null;
+          }
         } else if (messageData.message?.audioMessage) {
           messageType = "audio";
-          mediaUrl = messageData.message.audioMessage.url || null;
+
+          if (messageData.message.audioMessage.base64) {
+            const uploadedUrl = await uploadMediaToStorage(
+              messageData.message.audioMessage.base64,
+              messageData.message.audioMessage.mimetype || "audio/ogg",
+              messageId,
+              tenantId
+            );
+            mediaUrl = uploadedUrl || messageData.message.audioMessage.url || null;
+          } else {
+            mediaUrl = messageData.message.audioMessage.url || null;
+          }
         } else if (messageData.message?.documentMessage) {
           messageType = "document";
           content = messageData.message.documentMessage.fileName || "";
-          mediaUrl = messageData.message.documentMessage.url || null;
+
+          if (messageData.message.documentMessage.base64) {
+            const uploadedUrl = await uploadMediaToStorage(
+              messageData.message.documentMessage.base64,
+              messageData.message.documentMessage.mimetype || "application/octet-stream",
+              messageId,
+              tenantId
+            );
+            mediaUrl = uploadedUrl || messageData.message.documentMessage.url || null;
+          } else {
+            mediaUrl = messageData.message.documentMessage.url || null;
+          }
+        } else if (messageData.message?.stickerMessage) {
+          messageType = "sticker";
+
+          if (messageData.message.stickerMessage.base64) {
+            const uploadedUrl = await uploadMediaToStorage(
+              messageData.message.stickerMessage.base64,
+              messageData.message.stickerMessage.mimetype || "image/webp",
+              messageId,
+              tenantId
+            );
+            mediaUrl = uploadedUrl || messageData.message.stickerMessage.url || null;
+          } else {
+            mediaUrl = messageData.message.stickerMessage.url || null;
+          }
         }
 
         // Skip status messages
@@ -269,6 +470,16 @@ export async function POST(request: NextRequest) {
             break;
           }
           chat = newChat;
+
+          // Fetch profile picture asynchronously (don't wait)
+          if (newChat && instance.evolution_config_id) {
+            fetchAndSaveProfilePicture(
+              newChat.id,
+              remoteJid,
+              instance.evolution_config_id,
+              instanceName
+            ).catch(console.error);
+          }
         } else {
           // Update existing chat
           await supabase

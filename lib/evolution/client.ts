@@ -79,6 +79,12 @@ export interface InstanceSettings {
   readStatus: boolean;
 }
 
+export interface ProfilePictureResponse {
+  wpiUrl?: string;
+  profilePictureUrl?: string;
+  url?: string;
+}
+
 export interface EvolutionApiClient {
   testConnection(): Promise<EvolutionApiResponse<{ status: string }>>;
   createInstance(params: CreateInstanceParams): Promise<EvolutionApiResponse<InstanceData>>;
@@ -113,6 +119,7 @@ export interface EvolutionApiClient {
   getWebhook(instanceName: string): Promise<EvolutionApiResponse<{ url: string; events: string[] }>>;
   getSettings(instanceName: string): Promise<EvolutionApiResponse<InstanceSettings>>;
   setSettings(instanceName: string, settings: Partial<InstanceSettings>): Promise<EvolutionApiResponse<InstanceSettings>>;
+  fetchProfilePictureUrl(instanceName: string, number: string): Promise<EvolutionApiResponse<ProfilePictureResponse>>;
 }
 
 export function createEvolutionClient(credentials: EvolutionCredentials): EvolutionApiClient {
@@ -302,6 +309,13 @@ export function createEvolutionClient(credentials: EvolutionCredentials): Evolut
       return evolutionFetch<InstanceSettings>(`/settings/set/${instanceName}`, {
         method: "POST",
         body: JSON.stringify(settings),
+      });
+    },
+
+    async fetchProfilePictureUrl(instanceName: string, number: string): Promise<EvolutionApiResponse<ProfilePictureResponse>> {
+      return evolutionFetch<ProfilePictureResponse>(`/chat/fetchProfilePictureUrl/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify({ number }),
       });
     },
   };

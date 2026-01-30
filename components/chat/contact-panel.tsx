@@ -45,6 +45,7 @@ interface Chat {
   id: string;
   remote_jid: string;
   contact_name: string | null;
+  profile_picture_url: string | null;
   tags: string[] | null;
   whatsapp_instances: {
     id: string;
@@ -70,6 +71,7 @@ export function ContactPanel({ chatId }: ContactPanelProps) {
   const [newNote, setNewNote] = useState("");
   const [addingTag, setAddingTag] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -106,6 +108,7 @@ export function ContactPanel({ chatId }: ContactPanelProps) {
         id,
         remote_jid,
         contact_name,
+        profile_picture_url,
         tags,
         whatsapp_instances(id, name, color),
         leads(id, name)
@@ -117,6 +120,7 @@ export function ContactPanel({ chatId }: ContactPanelProps) {
     if (chatData) {
       const typedChat = chatData as unknown as Chat;
       setChat(typedChat);
+      setAvatarError(false);
 
       // Load lead if linked
       if (typedChat.leads?.id) {
@@ -269,9 +273,18 @@ export function ContactPanel({ chatId }: ContactPanelProps) {
       <div className="p-4 space-y-6">
         {/* Contact Header */}
         <div className="text-center">
-          <div className="h-20 w-20 rounded-full bg-green-600 flex items-center justify-center text-white text-2xl font-medium mx-auto mb-3">
-            {displayName.charAt(0).toUpperCase()}
-          </div>
+          {chat.profile_picture_url && !avatarError ? (
+            <img
+              src={chat.profile_picture_url}
+              alt={displayName}
+              className="h-20 w-20 rounded-full object-cover mx-auto mb-3"
+              onError={() => setAvatarError(true)}
+            />
+          ) : (
+            <div className="h-20 w-20 rounded-full bg-green-600 flex items-center justify-center text-white text-2xl font-medium mx-auto mb-3">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <h3 className="text-lg font-semibold text-white">{displayName}</h3>
           <p className="text-sm text-muted-foreground">
             {formatPhoneNumber(chat.remote_jid)}

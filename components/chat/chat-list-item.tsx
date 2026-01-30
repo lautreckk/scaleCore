@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 
 interface ChatListItemProps {
   id: string;
   contactName: string | null;
+  profilePictureUrl: string | null;
   remoteJid: string;
   lastMessage: string | null;
   lastMessageAt: string | null;
@@ -18,6 +20,7 @@ interface ChatListItemProps {
 
 export function ChatListItem({
   contactName,
+  profilePictureUrl,
   remoteJid,
   lastMessage,
   lastMessageAt,
@@ -38,6 +41,7 @@ export function ChatListItem({
 
   const displayName = contactName || leadName || formatPhoneNumber(remoteJid);
   const initial = displayName.charAt(0).toUpperCase();
+  const [imageError, setImageError] = useState(false);
 
   return (
     <div
@@ -51,9 +55,18 @@ export function ChatListItem({
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
-          {initial}
-        </div>
+        {profilePictureUrl && !imageError ? (
+          <img
+            src={profilePictureUrl}
+            alt={displayName}
+            className="h-12 w-12 rounded-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
+            {initial}
+          </div>
+        )}
         {instanceColor && (
           <div
             className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-background"
@@ -66,7 +79,15 @@ export function ChatListItem({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-medium text-white truncate">{displayName}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-medium text-white truncate">{displayName}</span>
+            {/* Show phone number when there's a contact name */}
+            {(contactName || leadName) && (
+              <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                {formatPhoneNumber(remoteJid).slice(-9)}
+              </span>
+            )}
+          </div>
           {lastMessageAt && (
             <span className={cn(
               "text-xs flex-shrink-0",
