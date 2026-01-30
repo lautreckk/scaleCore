@@ -140,9 +140,13 @@ export async function POST(request: NextRequest) {
     console.log("Raw body:", rawBody.substring(0, 500));
 
     const payload: EvolutionWebhookPayload = JSON.parse(rawBody);
-    const { event, instance: instanceName, data } = payload;
+    const { event: rawEvent, instance: instanceName, data } = payload;
 
-    console.log(`Evolution webhook: ${event} for ${instanceName}`);
+    // Normalize event name: Evolution API v2.3 uses "messages.upsert" format
+    // Convert to uppercase with underscore format for consistency
+    const event = rawEvent.toUpperCase().replace(/\./g, "_");
+
+    console.log(`Evolution webhook: ${rawEvent} -> ${event} for ${instanceName}`);
     console.log("Payload keys:", Object.keys(payload));
 
     // Get instance from database
