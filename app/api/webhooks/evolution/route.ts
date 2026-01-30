@@ -16,6 +16,8 @@ async function fetchAndSaveProfilePicture(
   instanceName: string
 ) {
   try {
+    console.log(`[Profile Picture] Starting fetch for chat ${chatId}, JID: ${remoteJid}`);
+
     // Get evolution config
     const { data: config } = await supabase
       .from("evolution_api_configs")
@@ -24,9 +26,11 @@ async function fetchAndSaveProfilePicture(
       .single();
 
     if (!config) {
-      console.log("Evolution config not found for profile picture");
+      console.log("[Profile Picture] Evolution config not found");
       return;
     }
+
+    console.log(`[Profile Picture] Using Evolution API: ${config.url}`);
 
     // Create Evolution client
     const apiKey = decrypt(config.api_key_encrypted);
@@ -37,12 +41,17 @@ async function fetchAndSaveProfilePicture(
 
     // Extract phone number from JID
     const phoneNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@g.us", "");
+    console.log(`[Profile Picture] Fetching for number: ${phoneNumber}, instance: ${instanceName}`);
 
     // Fetch profile picture
     const result = await evolutionClient.fetchProfilePictureUrl(instanceName, phoneNumber);
+    console.log(`[Profile Picture] API Response:`, JSON.stringify(result, null, 2));
 
     if (result.success && result.data) {
-      const pictureUrl = result.data.profilePictureUrl || result.data.wpiUrl || result.data.url;
+      // Try different response formats
+      const data = result.data as Record<string, unknown>;
+      const pictureUrl = data.profilePictureUrl || data.wpiUrl || data.url || data.pictureUrl || data.picture;
+      console.log(`[Profile Picture] Extracted URL: ${pictureUrl}`);
 
       if (pictureUrl) {
         await supabase
@@ -50,11 +59,15 @@ async function fetchAndSaveProfilePicture(
           .update({ profile_picture_url: pictureUrl })
           .eq("id", chatId);
 
-        console.log(`Profile picture saved for chat ${chatId}`);
+        console.log(`[Profile Picture] Saved for chat ${chatId}`);
+      } else {
+        console.log(`[Profile Picture] No URL found in response`);
       }
+    } else {
+      console.log(`[Profile Picture] API call failed or no data: ${result.error || 'no data'}`);
     }
   } catch (error) {
-    console.error("Error fetching profile picture:", error);
+    console.error("[Profile Picture] Error:", error);
   }
 }
 
@@ -491,6 +504,24 @@ export async function POST(request: NextRequest) {
               unread_count: fromMe ? 0 : supabase.rpc("increment", { x: 1 }),
             })
             .eq("id", chat.id);
+
+          // Fetch profile picture if not already set
+          if (instance.evolution_config_id) {
+            const { data: chatData } = await supabase
+              .from("chats")
+              .select("profile_picture_url")
+              .eq("id", chat.id)
+              .single();
+
+            if (chatData && !chatData.profile_picture_url) {
+              fetchAndSaveProfilePicture(
+                chat.id,
+                remoteJid,
+                instance.evolution_config_id,
+                instanceName
+              ).catch(console.error);
+            }
+          }
         }
 
         // Insert message
