@@ -106,6 +106,12 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
     }
   }, [filterParam]);
 
+  // Sync selectedInstanceId with URL instance parameter
+  useEffect(() => {
+    const instanceParam = searchParams.get("instance");
+    setSelectedInstanceId(instanceParam);
+  }, [searchParams]);
+
   const loadUnreadCounts = useCallback(async () => {
     if (!tenantId) return;
 
@@ -365,30 +371,26 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
         )}
       </div>
 
-      {/* Filter Tabs */}
-      <div className="border-b border-border overflow-x-auto scrollbar-hide">
-        <div className="flex p-2 gap-1 min-w-max">
+      {/* Filter Tabs - Icons only */}
+      <div className="border-b border-border">
+        <div className="flex p-2 gap-1 justify-center">
             {FILTER_TABS.map((tab) => (
               <Button
                 key={tab.id}
                 variant={activeTab === tab.id ? "default" : "ghost"}
-                size="sm"
+                size="icon"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-1.5 whitespace-nowrap",
+                  "relative h-9 w-9",
                   activeTab === tab.id && "bg-primary text-primary-foreground"
                 )}
                 title={tab.description}
               >
                 {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
                 {tabCounts[tab.id] > 0 && (
-                  <Badge
-                    variant={activeTab === tab.id ? "secondary" : "outline"}
-                    className="ml-1 h-5 min-w-[20px] px-1.5 text-xs"
-                  >
+                  <span className="absolute -top-1 -right-1 h-4 min-w-[16px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-medium flex items-center justify-center px-1">
                     {tabCounts[tab.id] > 99 ? "99+" : tabCounts[tab.id]}
-                  </Badge>
+                  </span>
                 )}
               </Button>
             ))}

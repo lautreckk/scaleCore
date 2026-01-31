@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -18,11 +18,6 @@ import {
   X,
   Kanban,
   ChevronDown,
-  MessageSquare,
-  Clock,
-  User,
-  CheckCircle,
-  Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,23 +33,12 @@ interface SidebarProps {
   plan?: string;
 }
 
-interface InboxCounts {
-  all: number;
-  new: number;
-  waiting: number;
-  mine: number;
-  closed: number;
-  archived: number;
+interface WhatsAppInstance {
+  id: string;
+  name: string;
+  color: string | null;
+  unreadCount: number;
 }
-
-const inboxFilters = [
-  { id: "all", name: "Todos", icon: Inbox, query: "" },
-  { id: "new", name: "Novos", icon: MessageSquare, query: "?filter=new" },
-  { id: "waiting", name: "Aguardando", icon: Clock, query: "?filter=waiting" },
-  { id: "mine", name: "Meus", icon: User, query: "?filter=mine" },
-  { id: "closed", name: "Finalizados", icon: CheckCircle, query: "?filter=closed" },
-  { id: "archived", name: "Arquivados", icon: Archive, query: "?filter=archived" },
-];
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -71,15 +55,10 @@ const navigation = [
 
 export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [inboxOpen, setInboxOpen] = useState(false);
-  const [inboxCounts, setInboxCounts] = useState<InboxCounts>({
-    all: 0,
-    new: 0,
-    waiting: 0,
-    mine: 0,
-    closed: 0,
-    archived: 0,
-  });
+  const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
+  const [totalUnread, setTotalUnread] = useState(0);
   const supabase = createClient();
 
   // Auto-expand inbox when on chats page
@@ -89,91 +68,56 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
     }
   }, [pathname]);
 
-  // Load inbox counts
+  // Load WhatsApp instances with unread counts
   useEffect(() => {
-    const loadCounts = async () => {
+    const loadInstances = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: tenantUser } = await supabase
         .from("tenant_users")
-        .select("tenant_id, id")
+        .select("tenant_id")
         .eq("user_id", user.id)
         .single();
 
       if (!tenantUser) return;
 
       const tenantId = tenantUser.tenant_id;
-      const currentUserId = tenantUser.id;
 
-      // Get counts for each filter (using unread_count > 0 for badges)
-      const [allResult, newResult, waitingResult, mineResult, closedResult, archivedResult] = await Promise.all([
-        // All unread
-        supabase
-          .from("chats")
-          .select("unread_count")
-          .eq("tenant_id", tenantId)
-          .eq("archived", false)
-          .or("status.is.null,status.neq.closed")
-          .gt("unread_count", 0),
-        // New (unassigned with unread)
-        supabase
-          .from("chats")
-          .select("unread_count")
-          .eq("tenant_id", tenantId)
-          .eq("archived", false)
-          .is("assigned_to", null)
-          .or("status.is.null,status.neq.closed")
-          .gt("unread_count", 0),
-        // Waiting (all with unread)
-        supabase
-          .from("chats")
-          .select("unread_count")
-          .eq("tenant_id", tenantId)
-          .eq("archived", false)
-          .gt("unread_count", 0)
-          .or("status.is.null,status.neq.closed"),
-        // Mine (assigned to me with unread)
-        supabase
-          .from("chats")
-          .select("unread_count")
-          .eq("tenant_id", tenantId)
-          .eq("archived", false)
-          .eq("assigned_to", currentUserId)
-          .or("status.is.null,status.neq.closed")
-          .gt("unread_count", 0),
-        // Closed with unread
-        supabase
-          .from("chats")
-          .select("unread_count")
-          .eq("tenant_id", tenantId)
-          .eq("archived", false)
-          .eq("status", "closed")
-          .gt("unread_count", 0),
-        // Archived with unread
-        supabase
-          .from("chats")
-          .select("unread_count")
-          .eq("tenant_id", tenantId)
-          .eq("archived", true)
-          .gt("unread_count", 0),
-      ]);
+      // Get all WhatsApp instances
+      const { data: instancesData } = await supabase
+        .from("whatsapp_instances")
+        .select("id, name, color")
+        .eq("tenant_id", tenantId)
+        .order("name");
 
-      // Sum up unread counts
-      const sumUnread = (data: { unread_count: number }[] | null) =>
-        (data || []).reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      if (!instancesData) return;
 
-      setInboxCounts({
-        all: sumUnread(allResult.data),
-        new: sumUnread(newResult.data),
-        waiting: sumUnread(waitingResult.data),
-        mine: sumUnread(mineResult.data),
-        closed: sumUnread(closedResult.data),
-        archived: sumUnread(archivedResult.data),
-      });
+      // Get unread counts per instance
+      const { data: unreadChats } = await supabase
+        .from("chats")
+        .select("instance_id, unread_count")
+        .eq("tenant_id", tenantId)
+        .eq("archived", false)
+        .gt("unread_count", 0);
+
+      const countByInstance = (unreadChats || []).reduce((acc, chat) => {
+        if (chat.instance_id) {
+          acc[chat.instance_id] = (acc[chat.instance_id] || 0) + chat.unread_count;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      const instancesWithUnread: WhatsAppInstance[] = instancesData.map((instance) => ({
+        ...instance,
+        unreadCount: countByInstance[instance.id] || 0,
+      }));
+
+      setInstances(instancesWithUnread);
+      setTotalUnread(instancesWithUnread.reduce((sum, i) => sum + i.unreadCount, 0));
     };
 
-    loadCounts();
+    loadInstances();
 
     // Set up real-time subscription for chat updates
     const channel = supabase
@@ -186,7 +130,7 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
           table: "chats",
         },
         () => {
-          loadCounts();
+          loadInstances();
         }
       )
       .subscribe();
@@ -206,7 +150,7 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
   };
 
   const isInboxActive = pathname.startsWith("/chats");
-  const totalUnread = inboxCounts.all;
+  const currentInstanceId = searchParams.get("instance");
 
   return (
     <>
@@ -311,16 +255,36 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-1 ml-4 space-y-1">
-                    {inboxFilters.map((filter) => {
-                      const count = inboxCounts[filter.id as keyof InboxCounts];
-                      const filterPath = `/chats${filter.query}`;
-                      const isActive = pathname === "/chats" && filter.id === "all" ||
-                                       pathname.includes(`filter=${filter.id}`);
+                    {/* All instances option */}
+                    <Link
+                      href="/chats"
+                      onClick={onClose}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
+                        pathname === "/chats" && !currentInstanceId
+                          ? "bg-primary/20 text-white"
+                          : "text-muted-foreground hover:bg-surface-elevated hover:text-white"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full bg-gradient-to-r from-blue-500 to-green-500" />
+                        Todas
+                      </div>
+                      {totalUnread > 0 && (
+                        <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
+                          {totalUnread > 99 ? "99+" : totalUnread}
+                        </Badge>
+                      )}
+                    </Link>
+
+                    {/* Individual instances */}
+                    {instances.map((instance) => {
+                      const isActive = currentInstanceId === instance.id;
 
                       return (
                         <Link
-                          key={filter.id}
-                          href={filterPath}
+                          key={instance.id}
+                          href={`/chats?instance=${instance.id}`}
                           onClick={onClose}
                           className={cn(
                             "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
@@ -330,15 +294,15 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
                           )}
                         >
                           <div className="flex items-center gap-2">
-                            <filter.icon className="h-4 w-4" />
-                            {filter.name}
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: instance.color || "#22c55e" }}
+                            />
+                            <span className="truncate">{instance.name}</span>
                           </div>
-                          {count > 0 && (
-                            <Badge
-                              variant={filter.id === "waiting" ? "destructive" : "secondary"}
-                              className="h-5 min-w-[20px] px-1.5 text-xs"
-                            >
-                              {count > 99 ? "99+" : count}
+                          {instance.unreadCount > 0 && (
+                            <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
+                              {instance.unreadCount > 99 ? "99+" : instance.unreadCount}
                             </Badge>
                           )}
                         </Link>
