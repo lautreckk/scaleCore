@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn, formatRelativeTime } from "@/lib/utils";
+import { CheckCircle, UserCircle } from "lucide-react";
 
 interface ChatListItemProps {
   id: string;
@@ -16,6 +17,8 @@ interface ChatListItemProps {
   leadName: string | null;
   isSelected: boolean;
   onClick: () => void;
+  status?: string | null;
+  isAssigned?: boolean;
 }
 
 export function ChatListItem({
@@ -30,6 +33,8 @@ export function ChatListItem({
   leadName,
   isSelected,
   onClick,
+  status,
+  isAssigned,
 }: ChatListItemProps) {
   const formatPhoneNumber = (jid: string) => {
     const phone = jid.replace("@s.whatsapp.net", "").replace("@g.us", "");
@@ -98,9 +103,22 @@ export function ChatListItem({
           )}
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <span className="text-sm text-muted-foreground truncate">
-            {lastMessage || "Sem mensagens"}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {/* Status indicators */}
+            {status === "closed" && (
+              <span title="Finalizado">
+                <CheckCircle className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+              </span>
+            )}
+            {isAssigned && status !== "closed" && (
+              <span title="Atribuído">
+                <UserCircle className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+              </span>
+            )}
+            <span className="text-sm text-muted-foreground truncate">
+              {lastMessage || "Sem mensagens"}
+            </span>
+          </div>
           {unreadCount > 0 && (
             <span className="h-5 min-w-[20px] rounded-full bg-primary text-white text-xs font-medium flex items-center justify-center px-1.5 flex-shrink-0">
               {unreadCount > 99 ? "99+" : unreadCount}

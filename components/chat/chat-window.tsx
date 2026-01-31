@@ -17,6 +17,10 @@ import {
   ChevronRight,
   MessageSquare,
   Ban,
+  UserPlus,
+  UserMinus,
+  CheckCircle,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -48,6 +52,8 @@ interface Chat {
   profile_picture_url: string | null;
   unread_count: number;
   archived: boolean;
+  status: string | null;
+  assigned_to: string | null;
   board_id: string | null;
   stage_id: string | null;
   whatsapp_instances: {
@@ -74,6 +80,7 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -170,11 +177,14 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
 
     const { data: tenantUser } = await supabase
       .from("tenant_users")
-      .select("tenant_id")
+      .select("tenant_id, id")
       .eq("user_id", user.id)
       .single();
 
     if (!tenantUser) return;
+
+    // Store current user ID for assignment checks
+    setCurrentUserId(tenantUser.id);
 
     const { data, error } = await supabase
       .from("chats")
@@ -185,6 +195,8 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         profile_picture_url,
         unread_count,
         archived,
+        status,
+        assigned_to,
         board_id,
         stage_id,
         whatsapp_instances(id, instance_name, name, status, color),
@@ -451,6 +463,48 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
     }
   };
 
+  const toggleAssign = async () => {
+    if (!chat) return;
+
+    const isAssignedToMe = chat.assigned_to === currentUserId;
+    const newAssignedTo = isAssignedToMe ? null : currentUserId;
+
+    try {
+      const { error } = await supabase
+        .from("chats")
+        .update({ assigned_to: newAssignedTo })
+        .eq("id", chat.id);
+
+      if (error) throw error;
+
+      toast.success(isAssignedToMe ? "Conversa desatribuída" : "Conversa atribuída a você");
+      setChat({ ...chat, assigned_to: newAssignedTo });
+    } catch (error) {
+      toast.error("Erro ao atualizar atribuição");
+    }
+  };
+
+  const toggleStatus = async () => {
+    if (!chat) return;
+
+    const isClosed = chat.status === "closed";
+    const newStatus = isClosed ? "open" : "closed";
+
+    try {
+      const { error } = await supabase
+        .from("chats")
+        .update({ status: newStatus })
+        .eq("id", chat.id);
+
+      if (error) throw error;
+
+      toast.success(isClosed ? "Conversa reaberta" : "Conversa finalizada");
+      setChat({ ...chat, status: newStatus });
+    } catch (error) {
+      toast.error("Erro ao atualizar status");
+    }
+  };
+
   const deleteMessage = async (messageId: string) => {
     if (!chat || !chat.whatsapp_instances) return;
 
@@ -653,6 +707,32 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={toggleAssign}>
+                {chat.assigned_to === currentUserId ? (
+                  <>
+                    <UserMinus className="h-4 w-4 mr-2" />
+                    Desatribuir de mim
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Atribuir a mim
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={toggleStatus}>
+                {chat.status === "closed" ? (
+                  <>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reabrir conversa
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Finalizar conversa
+                  </>
+                )}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={toggleArchive}>
                 {chat.archived ? (
                   <>

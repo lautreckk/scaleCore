@@ -15,7 +15,7 @@ import {
 const settingsNav = [
   { label: "Perfil", href: "/settings", icon: User },
   { label: "Empresa", href: "/settings/company", icon: Building2 },
-  { label: "WhatsApp", href: "/settings/integrations", icon: Plug },
+  { label: "Integrações", href: "/settings/integrations", icon: Plug },
   { label: "Fontes de Leads", href: "/settings/sources", icon: Webhook },
   { label: "Notificações", href: "/settings/notifications", icon: Bell },
   { label: "Faturamento", href: "/settings/billing", icon: CreditCard },
