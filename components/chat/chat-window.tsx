@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { StageSelector } from "@/components/kanban";
 
 interface Message {
   id: string;
@@ -47,6 +48,8 @@ interface Chat {
   profile_picture_url: string | null;
   unread_count: number;
   archived: boolean;
+  board_id: string | null;
+  stage_id: string | null;
   whatsapp_instances: {
     id: string;
     instance_name: string;
@@ -182,6 +185,8 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         profile_picture_url,
         unread_count,
         archived,
+        board_id,
+        stage_id,
         whatsapp_instances(id, instance_name, name, status, color),
         leads(id, name)
       `)
@@ -614,6 +619,18 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="hidden md:block">
+            <StageSelector
+              itemType="chat"
+              itemId={chat.id}
+              currentStageId={chat.stage_id}
+              currentBoardId={chat.board_id}
+              onStageChange={(stageId, boardId) => {
+                setChat({ ...chat, stage_id: stageId, board_id: boardId });
+              }}
+              compact
+            />
+          </div>
           <Badge variant={isConnected ? "success" : "secondary"} className="hidden sm:flex">
             {isConnected ? "Conectado" : "Desconectado"}
           </Badge>

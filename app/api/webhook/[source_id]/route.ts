@@ -142,6 +142,37 @@ export async function POST(
       };
     }
 
+    // Get default board and first stage for leads
+    let defaultBoardId: string | null = null;
+    let defaultStageId: string | null = null;
+
+    const { data: defaultBoard } = await supabase
+      .from("kanban_boards")
+      .select(`
+        id,
+        kanban_stages(id, position)
+      `)
+      .eq("tenant_id", source.tenant_id)
+      .eq("is_default", true)
+      .in("entity_type", ["leads", "both"])
+      .limit(1)
+      .single();
+
+    if (defaultBoard) {
+      defaultBoardId = defaultBoard.id;
+      // Get first stage (position = 0)
+      const stages = defaultBoard.kanban_stages as Array<{ id: string; position: number }>;
+      if (stages && stages.length > 0) {
+        const sortedStages = stages.sort((a, b) => a.position - b.position);
+        defaultStageId = sortedStages[0].id;
+      }
+    }
+
+    // Add board, stage, and source type to lead data
+    leadData.board_id = defaultBoardId;
+    leadData.stage_id = defaultStageId;
+    leadData.source = "webhook";
+
     // Upsert lead (update if external_id exists)
     let lead;
     if (leadData.external_id) {

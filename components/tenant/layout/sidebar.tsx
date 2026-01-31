@@ -14,6 +14,7 @@ import {
   UsersRound,
   Link2,
   X,
+  Kanban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Leads", href: "/leads", icon: Users },
   { name: "Conversas", href: "/chats", icon: MessageSquare },
+  { name: "Kanban", href: "/kanban", icon: Kanban },
   { name: "Campanhas", href: "/campaigns", icon: Megaphone },
   { name: "Automações", href: "/automations", icon: Zap },
   { name: "Créditos", href: "/credits", icon: Wallet },

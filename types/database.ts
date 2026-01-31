@@ -219,6 +219,9 @@ export interface Database {
           assigned_to: string | null
           created_at: string | null
           updated_at: string | null
+          board_id: string | null
+          stage_id: string | null
+          source: string | null
         }
         Insert: {
           id?: string
@@ -236,6 +239,9 @@ export interface Database {
           assigned_to?: string | null
           created_at?: string | null
           updated_at?: string | null
+          board_id?: string | null
+          stage_id?: string | null
+          source?: string | null
         }
         Update: {
           id?: string
@@ -253,6 +259,9 @@ export interface Database {
           assigned_to?: string | null
           created_at?: string | null
           updated_at?: string | null
+          board_id?: string | null
+          stage_id?: string | null
+          source?: string | null
         }
       }
       lead_notes: {
@@ -375,6 +384,8 @@ export interface Database {
           assigned_to: string | null
           tags: string[] | null
           created_at: string | null
+          board_id: string | null
+          stage_id: string | null
         }
         Insert: {
           id?: string
@@ -390,6 +401,8 @@ export interface Database {
           assigned_to?: string | null
           tags?: string[] | null
           created_at?: string | null
+          board_id?: string | null
+          stage_id?: string | null
         }
         Update: {
           id?: string
@@ -405,6 +418,8 @@ export interface Database {
           assigned_to?: string | null
           tags?: string[] | null
           created_at?: string | null
+          board_id?: string | null
+          stage_id?: string | null
         }
       }
       messages: {
@@ -893,6 +908,99 @@ export interface Database {
           last_error_message?: string | null
           created_at?: string | null
           updated_at?: string | null
+        }
+      }
+      kanban_boards: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          description: string | null
+          entity_type: string
+          filters: Json | null
+          is_default: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          name: string
+          description?: string | null
+          entity_type?: string
+          filters?: Json | null
+          is_default?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          name?: string
+          description?: string | null
+          entity_type?: string
+          filters?: Json | null
+          is_default?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
+      kanban_stages: {
+        Row: {
+          id: string
+          board_id: string
+          name: string
+          color: string | null
+          position: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          board_id: string
+          name: string
+          color?: string | null
+          position?: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          board_id?: string
+          name?: string
+          color?: string | null
+          position?: number
+          created_at?: string | null
+        }
+      }
+      saved_filters: {
+        Row: {
+          id: string
+          tenant_id: string
+          user_id: string | null
+          name: string
+          entity_type: string
+          filters: Json
+          is_default: boolean | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          user_id?: string | null
+          name: string
+          entity_type: string
+          filters?: Json
+          is_default?: boolean | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          user_id?: string | null
+          name?: string
+          entity_type?: string
+          filters?: Json
+          is_default?: boolean | null
+          created_at?: string | null
         }
       }
     }

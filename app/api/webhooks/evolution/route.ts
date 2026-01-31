@@ -8,6 +8,32 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper function to format phone number for display
+function formatPhoneForDisplay(phone: string): string {
+  // Remove non-digits
+  const digits = phone.replace(/\D/g, "");
+
+  // Brazilian phone: 55 + DDD (2) + number (8-9)
+  if (digits.length === 13 && digits.startsWith("55")) {
+    const ddd = digits.slice(2, 4);
+    const number = digits.slice(4);
+    return `(${ddd}) ${number.slice(0, 5)}-${number.slice(5)}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("55")) {
+    const ddd = digits.slice(2, 4);
+    const number = digits.slice(4);
+    return `(${ddd}) ${number.slice(0, 4)}-${number.slice(4)}`;
+  }
+
+  // International format
+  if (digits.length > 10) {
+    return `+${digits.slice(0, 2)} ${digits.slice(2)}`;
+  }
+
+  return phone;
+}
+
 // Helper function to fetch and save profile picture
 async function fetchAndSaveProfilePicture(
   chatId: string,
@@ -596,13 +622,94 @@ export async function POST(request: NextRequest) {
         if (!chat) {
           // Try to find a lead with this phone number
           const phoneNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@g.us", "");
-          const { data: lead } = await supabase
+          let { data: lead } = await supabase
             .from("leads")
             .select("id")
             .eq("tenant_id", tenantId)
             .or(`phone.ilike.%${phoneNumber}%,phone.ilike.%${phoneNumber.slice(-9)}%`)
             .limit(1)
             .single();
+
+          // If no lead found, create one automatically
+          if (!lead) {
+            const contactName = messageData.pushName || formatPhoneForDisplay(phoneNumber);
+            const instanceTag = instance.name || instanceName;
+
+            console.log(`[Lead Auto-Create] Creating lead for phone ${phoneNumber}, name: ${contactName}`);
+
+            // Get default board and first stage for leads
+            let leadBoardId: string | null = null;
+            let leadStageId: string | null = null;
+
+            const { data: leadBoard } = await supabase
+              .from("kanban_boards")
+              .select(`
+                id,
+                kanban_stages(id, position)
+              `)
+              .eq("tenant_id", tenantId)
+              .eq("is_default", true)
+              .in("entity_type", ["leads", "both"])
+              .limit(1)
+              .single();
+
+            if (leadBoard) {
+              leadBoardId = leadBoard.id;
+              const stages = leadBoard.kanban_stages as Array<{ id: string; position: number }>;
+              if (stages && stages.length > 0) {
+                const sortedStages = stages.sort((a, b) => a.position - b.position);
+                leadStageId = sortedStages[0].id;
+              }
+            }
+
+            const { data: newLead, error: leadError } = await supabase
+              .from("leads")
+              .insert({
+                tenant_id: tenantId,
+                name: contactName,
+                phone: phoneNumber,
+                status: "new",
+                source: "whatsapp",
+                tags: ["whatsapp", instanceTag],
+                board_id: leadBoardId,
+                stage_id: leadStageId,
+              })
+              .select("id")
+              .single();
+
+            if (leadError) {
+              console.error("[Lead Auto-Create] Error:", leadError);
+            } else {
+              lead = newLead;
+              console.log(`[Lead Auto-Create] Success, id=${newLead?.id}`);
+            }
+          }
+
+          // Get default board and first stage for this tenant (for chats)
+          let defaultBoardId: string | null = null;
+          let defaultStageId: string | null = null;
+
+          const { data: defaultBoard } = await supabase
+            .from("kanban_boards")
+            .select(`
+              id,
+              kanban_stages(id, position)
+            `)
+            .eq("tenant_id", tenantId)
+            .eq("is_default", true)
+            .in("entity_type", ["chats", "both"])
+            .limit(1)
+            .single();
+
+          if (defaultBoard) {
+            defaultBoardId = defaultBoard.id;
+            // Get first stage (position = 0)
+            const stages = defaultBoard.kanban_stages as Array<{ id: string; position: number }>;
+            if (stages && stages.length > 0) {
+              const sortedStages = stages.sort((a, b) => a.position - b.position);
+              defaultStageId = sortedStages[0].id;
+            }
+          }
 
           const insertPreview = getLastMessagePreview(messageType, content);
           console.log(`[Chat Insert] preview="${insertPreview}", messageType=${messageType}`);
@@ -620,6 +727,8 @@ export async function POST(request: NextRequest) {
               last_message: insertPreview,
               last_message_at: new Date().toISOString(),
               unread_count: fromMe ? 0 : 1,
+              board_id: defaultBoardId,
+              stage_id: defaultStageId,
             })
             .select()
             .single();
