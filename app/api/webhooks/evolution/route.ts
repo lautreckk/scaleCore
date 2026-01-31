@@ -429,13 +429,50 @@ export async function POST(request: NextRequest) {
         const connData = data as ConnectionData;
         const status = connData.state === "open" ? "connected" : "disconnected";
 
+        const updateData: Record<string, unknown> = {
+          status,
+          qrcode: status === "connected" ? null : instance.qrcode,
+          last_connected_at: status === "connected" ? new Date().toISOString() : instance.last_connected_at,
+        };
+
+        // When connected, try to fetch the phone number
+        if (status === "connected" && instance.evolution_config_id) {
+          try {
+            const { data: config } = await supabase
+              .from("evolution_api_configs")
+              .select("url, api_key_encrypted")
+              .eq("id", instance.evolution_config_id)
+              .single();
+
+            if (config) {
+              const apiKey = decrypt(config.api_key_encrypted);
+              const evolutionClient = createEvolutionClient({
+                url: config.url,
+                apiKey,
+              });
+
+              // Fetch instance profile to get phone number
+              const profileResult = await evolutionClient.fetchProfile(instanceName);
+              console.log(`[CONNECTION_UPDATE] Profile result for ${instanceName}:`, JSON.stringify(profileResult, null, 2));
+
+              if (profileResult.success && profileResult.data) {
+                // wuid format is typically "5511999999999@s.whatsapp.net"
+                const wuid = profileResult.data.wuid;
+                if (wuid) {
+                  const phoneNumber = wuid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+                  updateData.phone_number = phoneNumber;
+                  console.log(`[CONNECTION_UPDATE] Saved phone number for ${instanceName}: ${phoneNumber}`);
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`[CONNECTION_UPDATE] Error fetching profile for ${instanceName}:`, error);
+          }
+        }
+
         await supabase
           .from("whatsapp_instances")
-          .update({
-            status,
-            qrcode: status === "connected" ? null : instance.qrcode,
-            last_connected_at: status === "connected" ? new Date().toISOString() : instance.last_connected_at,
-          })
+          .update(updateData)
           .eq("id", instance.id);
         break;
       }
