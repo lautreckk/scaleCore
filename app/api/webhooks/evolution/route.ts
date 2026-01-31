@@ -791,12 +791,14 @@ export async function POST(request: NextRequest) {
 
         for (const update of updates) {
           // Evolution API v2.3 uses different field names
-          // Try multiple possible locations for message ID
-          const messageId = update?.messageId || update?.keyId || update?.key?.id || update?.id;
+          // keyId is the WhatsApp message ID (3EB0...) - this is what we save when sending
+          // messageId is Evolution's internal ID - different from what we save
+          // Priority: keyId (WhatsApp ID) first, then key.id, then messageId as fallback
+          const messageId = update?.keyId || update?.key?.id || update?.messageId || update?.id;
           // Status can be in different places depending on Evolution API version
           const status = update?.status || update?.update?.status || update?.ack;
 
-          console.log(`[MESSAGES_UPDATE] messageId=${messageId}, status=${status}`);
+          console.log(`[MESSAGES_UPDATE] keyId=${update?.keyId}, messageId=${update?.messageId}, using=${messageId}, status=${status}`);
 
           if (messageId && status !== undefined) {
             const statusMap: Record<string, string> = {
