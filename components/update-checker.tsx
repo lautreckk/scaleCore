@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const VERSION_KEY = "app_version";
 const CHECK_INTERVAL = 60000; // Check every 60 seconds
@@ -71,21 +72,43 @@ export function UpdateChecker() {
     setIsUpdating(true);
 
     try {
-      // Get the new version and store it before reload
+      // 1. Save new version before clearing everything
       const response = await fetch("/api/version", { cache: "no-store" });
+      let newVersion = "";
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem(VERSION_KEY, data.version);
+        newVersion = data.version;
       }
 
-      // Clear all caches
+      // 2. Sign out from Supabase (invalidates tokens on server)
+      const supabase = createClient();
+      await supabase.auth.signOut();
+
+      // 3. Clear ALL cookies
+      document.cookie.split(";").forEach((c) => {
+        const name = c.split("=")[0].trim();
+        // Clear for all possible paths
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+      });
+
+      // 4. Clear localStorage (except new version)
+      localStorage.clear();
+      if (newVersion) {
+        localStorage.setItem(VERSION_KEY, newVersion);
+      }
+
+      // 5. Clear sessionStorage
+      sessionStorage.clear();
+
+      // 6. Clear browser caches
       if ("caches" in window) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map((name) => caches.delete(name)));
       }
 
-      // Force reload from server
-      window.location.reload();
+      // 7. Force complete reload to landing page
+      window.location.href = "/";
     } catch {
       // If anything fails, just reload
       window.location.reload();
