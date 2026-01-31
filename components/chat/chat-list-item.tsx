@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import { CheckCircle, UserCircle } from "lucide-react";
+import { CheckCircle, UserCircle, Users } from "lucide-react";
 
 interface ChatListItemProps {
   id: string;
@@ -44,9 +44,11 @@ export function ChatListItem({
     return phone;
   };
 
+  const isGroup = remoteJid.endsWith("@g.us");
   const displayName = contactName || leadName || formatPhoneNumber(remoteJid);
   const initial = displayName.charAt(0).toUpperCase();
   const [imageError, setImageError] = useState(false);
+  const isClosed = status === "closed";
 
   return (
     <div
@@ -55,7 +57,8 @@ export function ChatListItem({
         "flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors",
         "hover:bg-muted/50",
         isSelected && "bg-primary/10 hover:bg-primary/10",
-        unreadCount > 0 && "bg-muted/30"
+        unreadCount > 0 && !isClosed && "bg-muted/30",
+        isClosed && "opacity-50 grayscale"
       )}
     >
       {/* Avatar */}
@@ -67,8 +70,18 @@ export function ChatListItem({
             className="h-12 w-12 rounded-full object-cover"
             onError={() => setImageError(true)}
           />
+        ) : isGroup ? (
+          <div className={cn(
+            "h-12 w-12 rounded-full flex items-center justify-center text-white",
+            isClosed ? "bg-gray-500" : "bg-blue-600"
+          )}>
+            <Users className="h-6 w-6" />
+          </div>
         ) : (
-          <div className="h-12 w-12 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
+          <div className={cn(
+            "h-12 w-12 rounded-full flex items-center justify-center text-white font-medium",
+            isClosed ? "bg-gray-500" : "bg-green-600"
+          )}>
             {initial}
           </div>
         )}

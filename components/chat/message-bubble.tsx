@@ -37,6 +37,31 @@ interface MessageBubbleProps {
   timestamp: string;
   onDelete?: (messageId: string) => void;
   onEdit?: (messageId: string, newText: string) => void;
+  participantName?: string | null;
+  isGroup?: boolean;
+}
+
+// Generate consistent color based on participant name
+function getParticipantColor(name: string): string {
+  const colors = [
+    "text-blue-400",
+    "text-green-400",
+    "text-purple-400",
+    "text-orange-400",
+    "text-pink-400",
+    "text-cyan-400",
+    "text-yellow-400",
+    "text-red-400",
+    "text-indigo-400",
+    "text-teal-400",
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  return colors[Math.abs(hash) % colors.length];
 }
 
 export function MessageBubble({
@@ -49,6 +74,8 @@ export function MessageBubble({
   timestamp,
   onDelete,
   onEdit,
+  participantName,
+  isGroup,
 }: MessageBubbleProps) {
   const [imageError, setImageError] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -458,6 +485,16 @@ export function MessageBubble({
               : "bg-card border border-border rounded-bl-none"
           )}
         >
+          {/* Show participant name for group messages */}
+          {isGroup && !fromMe && participantName && (
+            <p className={cn(
+              "text-xs font-semibold mb-1",
+              getParticipantColor(participantName)
+            )}>
+              {participantName}
+            </p>
+          )}
+
           {renderMedia()}
 
           {/* Show content for text messages or as caption for media */}

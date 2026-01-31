@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
+import { DateSeparator } from "./date-separator";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -21,6 +22,7 @@ import {
   UserMinus,
   CheckCircle,
   RotateCcw,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -43,6 +45,8 @@ interface Message {
   status: string;
   timestamp: string;
   isOptimistic?: boolean; // For optimistic updates
+  participant_jid?: string | null;
+  participant_name?: string | null;
 }
 
 interface Chat {
@@ -82,10 +86,17 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const [avatarError, setAvatarError] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isInitialLoadRef = useRef(true);
   const supabase = createClient();
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((instant = false) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: instant ? "instant" : "smooth"
+        });
+      });
+    });
   }, []);
 
   // Send typing presence with debounce
@@ -291,8 +302,19 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (messages.length > 0 && !loading) {
+      const timer = setTimeout(() => {
+        scrollToBottom(isInitialLoadRef.current);
+        isInitialLoadRef.current = false;
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, loading, scrollToBottom]);
+
+  // Reset initial load ref when chat changes
+  useEffect(() => {
+    isInitialLoadRef.current = true;
+  }, [chatId]);
 
   const sendTextMessage = async (message: string) => {
     if (!chat || !chat.whatsapp_instances) {
@@ -627,7 +649,18 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   }
 
   const isConnected = chat.whatsapp_instances?.status === "connected";
+  const isGroup = chat.remote_jid.endsWith("@g.us");
   const displayName = chat.contact_name || chat.leads?.name || formatPhoneNumber(chat.remote_jid);
+
+  // Helper to determine if date separator should be shown
+  const shouldShowDateSeparator = (current: Message, previous?: Message) => {
+    if (!previous) return true;
+    const d1 = new Date(current.timestamp);
+    const d2 = new Date(previous.timestamp);
+    return d1.getDate() !== d2.getDate() ||
+           d1.getMonth() !== d2.getMonth() ||
+           d1.getFullYear() !== d2.getFullYear();
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -643,6 +676,10 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
                 className="h-10 w-10 rounded-full object-cover"
                 onError={() => setAvatarError(true)}
               />
+            ) : isGroup ? (
+              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white">
+                <Users className="h-5 w-5" />
+              </div>
             ) : (
               <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
                 {displayName.charAt(0).toUpperCase()}
@@ -657,9 +694,16 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
           </div>
 
           <div className="min-w-0">
-            <h3 className="font-medium text-white truncate">{displayName}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-white truncate">{displayName}</h3>
+              {isGroup && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                  Grupo
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground flex items-center gap-2">
-              {formatPhoneNumber(chat.remote_jid)}
+              {isGroup ? chat.remote_jid.replace("@g.us", "") : formatPhoneNumber(chat.remote_jid)}
               {chat.leads && (
                 <Link
                   href={`/leads/${chat.leads.id}`}
@@ -783,20 +827,30 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
               </div>
             ) : (
               <div className="space-y-3">
-                {messages.map((message) => (
-                  <MessageBubble
-                    key={message.id}
-                    messageId={message.message_id}
-                    content={message.content}
-                    messageType={message.message_type}
-                    mediaUrl={message.media_url}
-                    fromMe={message.from_me}
-                    status={message.status}
-                    timestamp={message.timestamp}
-                    onDelete={message.from_me && !message.isOptimistic ? deleteMessage : undefined}
-                    onEdit={message.from_me && message.message_type === "text" && !message.isOptimistic ? editMessage : undefined}
-                  />
-                ))}
+                {messages.map((message, index) => {
+                  const isGroup = chat?.remote_jid?.endsWith("@g.us") ?? false;
+                  const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
+                  return (
+                    <React.Fragment key={message.id}>
+                      {showDateSeparator && (
+                        <DateSeparator date={message.timestamp} />
+                      )}
+                      <MessageBubble
+                        messageId={message.message_id}
+                        content={message.content}
+                        messageType={message.message_type}
+                        mediaUrl={message.media_url}
+                        fromMe={message.from_me}
+                        status={message.status}
+                        timestamp={message.timestamp}
+                        onDelete={message.from_me && !message.isOptimistic ? deleteMessage : undefined}
+                        onEdit={message.from_me && message.message_type === "text" && !message.isOptimistic ? editMessage : undefined}
+                        participantName={message.participant_name}
+                        isGroup={isGroup}
+                      />
+                    </React.Fragment>
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </div>
             )}

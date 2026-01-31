@@ -231,67 +231,69 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
     }
   }, [tenantId, currentUserId, loadTabCounts]);
 
-  useEffect(() => {
+  const loadChats = useCallback(async () => {
     if (!tenantId) return;
 
-    const loadChats = async () => {
-      setLoading(true);
+    setLoading(true);
 
-      let query = supabase
-        .from("chats")
-        .select(`
-          id,
-          remote_jid,
-          contact_name,
-          profile_picture_url,
-          last_message,
-          last_message_at,
-          unread_count,
-          archived,
-          status,
-          assigned_to,
-          instance_id,
-          whatsapp_instances(id, name, color),
-          leads(id, name)
-        `)
-        .eq("tenant_id", tenantId)
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .limit(100);
+    let query = supabase
+      .from("chats")
+      .select(`
+        id,
+        remote_jid,
+        contact_name,
+        profile_picture_url,
+        last_message,
+        last_message_at,
+        unread_count,
+        archived,
+        status,
+        assigned_to,
+        instance_id,
+        whatsapp_instances(id, name, color),
+        leads(id, name)
+      `)
+      .eq("tenant_id", tenantId)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(100);
 
-      // Apply filter based on active tab
-      switch (activeTab) {
-        case "all":
-          query = query.eq("archived", false).or("status.is.null,status.neq.closed");
-          break;
-        case "new":
-          query = query.eq("archived", false).is("assigned_to", null).or("status.is.null,status.neq.closed");
-          break;
-        case "waiting":
-          query = query.eq("archived", false).gt("unread_count", 0).or("status.is.null,status.neq.closed");
-          break;
-        case "mine":
-          query = query.eq("archived", false).eq("assigned_to", currentUserId).or("status.is.null,status.neq.closed");
-          break;
-        case "closed":
-          query = query.eq("archived", false).eq("status", "closed");
-          break;
-        case "archived":
-          query = query.eq("archived", true);
-          break;
-      }
+    // Apply filter based on active tab
+    switch (activeTab) {
+      case "all":
+        query = query.eq("archived", false).or("status.is.null,status.neq.closed");
+        break;
+      case "new":
+        query = query.eq("archived", false).is("assigned_to", null).or("status.is.null,status.neq.closed");
+        break;
+      case "waiting":
+        query = query.eq("archived", false).gt("unread_count", 0).or("status.is.null,status.neq.closed");
+        break;
+      case "mine":
+        query = query.eq("archived", false).eq("assigned_to", currentUserId).or("status.is.null,status.neq.closed");
+        break;
+      case "closed":
+        query = query.eq("archived", false).eq("status", "closed");
+        break;
+      case "archived":
+        query = query.eq("archived", true);
+        break;
+    }
 
-      if (selectedInstanceId) {
-        query = query.eq("instance_id", selectedInstanceId);
-      }
+    if (selectedInstanceId) {
+      query = query.eq("instance_id", selectedInstanceId);
+    }
 
-      if (search) {
-        query = query.or(`contact_name.ilike.%${search}%,remote_jid.ilike.%${search}%`);
-      }
+    if (search) {
+      query = query.or(`contact_name.ilike.%${search}%,remote_jid.ilike.%${search}%`);
+    }
 
-      const { data } = await query;
-      setChats((data as unknown as Chat[]) || []);
-      setLoading(false);
-    };
+    const { data } = await query;
+    setChats((data as unknown as Chat[]) || []);
+    setLoading(false);
+  }, [supabase, tenantId, currentUserId, activeTab, selectedInstanceId, search]);
+
+  useEffect(() => {
+    if (!tenantId) return;
 
     loadChats();
 
@@ -308,7 +310,60 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
         },
         (payload) => {
           console.log("Chat realtime event:", payload);
-          loadChats();
+
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as Chat;
+            setChats(prev => {
+              const idx = prev.findIndex(c => c.id === updated.id);
+              if (idx === -1) {
+                // Chat not in current list - might need to add it based on filter
+                loadChats();
+                return prev;
+              }
+
+              // Check if the updated chat still matches current filter
+              const matchesFilter = (() => {
+                switch (activeTab) {
+                  case "all":
+                    return !updated.archived && updated.status !== "closed";
+                  case "new":
+                    return !updated.archived && !updated.assigned_to && updated.status !== "closed";
+                  case "waiting":
+                    return !updated.archived && updated.unread_count > 0 && updated.status !== "closed";
+                  case "mine":
+                    return !updated.archived && updated.assigned_to === currentUserId && updated.status !== "closed";
+                  case "closed":
+                    return !updated.archived && updated.status === "closed";
+                  case "archived":
+                    return updated.archived;
+                  default:
+                    return true;
+                }
+              })();
+
+              // Check instance filter
+              const matchesInstance = !selectedInstanceId || updated.instance_id === selectedInstanceId;
+
+              if (!matchesFilter || !matchesInstance) {
+                // Remove from list
+                return prev.filter(c => c.id !== updated.id);
+              }
+
+              // Update in place and reorder
+              const newChats = [...prev];
+              newChats[idx] = { ...newChats[idx], ...updated };
+              return newChats.sort((a, b) =>
+                new Date(b.last_message_at || 0).getTime() -
+                new Date(a.last_message_at || 0).getTime()
+              );
+            });
+          } else if (payload.eventType === "INSERT") {
+            // New chat - reload to get joins (whatsapp_instances, leads)
+            loadChats();
+          } else if (payload.eventType === "DELETE") {
+            setChats(prev => prev.filter(c => c.id !== (payload.old as Chat).id));
+          }
+
           loadUnreadCounts();
           loadTabCounts();
         }
@@ -320,7 +375,7 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, tenantId, currentUserId, search, activeTab, selectedInstanceId, loadUnreadCounts, loadTabCounts]);
+  }, [supabase, tenantId, currentUserId, search, activeTab, selectedInstanceId, loadChats, loadUnreadCounts, loadTabCounts]);
 
   const totalUnread = instancesWithUnread.reduce((sum, instance) => sum + instance.unreadCount, 0);
 

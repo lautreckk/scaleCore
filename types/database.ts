@@ -435,6 +435,8 @@ export interface Database {
           status: string | null
           timestamp: string | null
           created_at: string | null
+          participant_jid: string | null
+          participant_name: string | null
         }
         Insert: {
           id?: string
@@ -448,6 +450,8 @@ export interface Database {
           status?: string | null
           timestamp?: string | null
           created_at?: string | null
+          participant_jid?: string | null
+          participant_name?: string | null
         }
         Update: {
           id?: string
@@ -461,6 +465,8 @@ export interface Database {
           status?: string | null
           timestamp?: string | null
           created_at?: string | null
+          participant_jid?: string | null
+          participant_name?: string | null
         }
       }
       campaigns: {
@@ -1541,6 +1547,181 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      task_boards: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          description: string | null
+          color: string
+          position: number
+          visibility: 'private' | 'department' | 'team'
+          department_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          name: string
+          description?: string | null
+          color?: string
+          position?: number
+          visibility?: 'private' | 'department' | 'team'
+          department_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          name?: string
+          description?: string | null
+          color?: string
+          position?: number
+          visibility?: 'private' | 'department' | 'team'
+          department_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      task_columns: {
+        Row: {
+          id: string
+          board_id: string
+          name: string
+          color: string
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          board_id: string
+          name: string
+          color?: string
+          position?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          board_id?: string
+          name?: string
+          color?: string
+          position?: number
+          created_at?: string
+        }
+      }
+      tasks: {
+        Row: {
+          id: string
+          tenant_id: string
+          board_id: string
+          column_id: string
+          title: string
+          description: string | null
+          position: number
+          assignee_id: string | null
+          department_id: string | null
+          due_date: string | null
+          priority: 'low' | 'medium' | 'high' | 'urgent'
+          labels: string[]
+          cover_color: string | null
+          created_by: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          board_id: string
+          column_id: string
+          title: string
+          description?: string | null
+          position?: number
+          assignee_id?: string | null
+          department_id?: string | null
+          due_date?: string | null
+          priority?: 'low' | 'medium' | 'high' | 'urgent'
+          labels?: string[]
+          cover_color?: string | null
+          created_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          board_id?: string
+          column_id?: string
+          title?: string
+          description?: string | null
+          position?: number
+          assignee_id?: string | null
+          department_id?: string | null
+          due_date?: string | null
+          priority?: 'low' | 'medium' | 'high' | 'urgent'
+          labels?: string[]
+          cover_color?: string | null
+          created_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      task_checklists: {
+        Row: {
+          id: string
+          task_id: string
+          title: string
+          is_completed: boolean
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          title: string
+          is_completed?: boolean
+          position?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          title?: string
+          is_completed?: boolean
+          position?: number
+          created_at?: string
+        }
+      }
+      task_comments: {
+        Row: {
+          id: string
+          task_id: string
+          user_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          user_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          user_id?: string
+          content?: string
+          created_at?: string
         }
       }
     }

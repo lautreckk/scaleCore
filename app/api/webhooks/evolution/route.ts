@@ -253,6 +253,7 @@ interface MessageData {
     remoteJid: string;
     fromMe: boolean;
     id: string;
+    participant?: string; // JID of sender in group chats
   };
   pushName?: string;
   message?: {
@@ -484,6 +485,11 @@ export async function POST(request: NextRequest) {
         const fromMe = key.fromMe;
         const messageId = key.id;
 
+        // For group messages, extract participant info
+        const isGroup = remoteJid.endsWith("@g.us");
+        const participantJid = isGroup ? key.participant : null;
+        const participantName = isGroup && !fromMe ? messageData.pushName : null;
+
         // Log message data for debugging
         console.log("[WEBHOOK DEBUG] messageData keys:", Object.keys(messageData));
         console.log("[WEBHOOK DEBUG] Full messageData.message:", JSON.stringify(messageData.message, null, 2));
@@ -647,28 +653,80 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        // Find or create chat
+        // Find open chat (protocol system: only look for non-closed chats)
         let { data: chat } = await supabase
           .from("chats")
-          .select("id")
+          .select("id, status, lead_id")
           .eq("tenant_id", tenantId)
           .eq("instance_id", instance.id)
           .eq("remote_jid", remoteJid)
+          .or("status.is.null,status.eq.open")
           .single();
 
-        if (!chat) {
-          // Try to find a lead with this phone number
-          const phoneNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@g.us", "");
-          let { data: lead } = await supabase
-            .from("leads")
-            .select("id")
+        // If message is from us (fromMe) and no open chat, try to reopen most recent
+        if (!chat && fromMe) {
+          const { data: recentChat } = await supabase
+            .from("chats")
+            .select("id, status, lead_id")
             .eq("tenant_id", tenantId)
-            .or(`phone.ilike.%${phoneNumber}%,phone.ilike.%${phoneNumber.slice(-9)}%`)
+            .eq("instance_id", instance.id)
+            .eq("remote_jid", remoteJid)
+            .order("last_message_at", { ascending: false })
             .limit(1)
             .single();
 
+          if (recentChat) {
+            // Reopen if was closed
+            if (recentChat.status === "closed") {
+              await supabase
+                .from("chats")
+                .update({ status: "open" })
+                .eq("id", recentChat.id);
+              console.log(`[Chat Reopen] Reopened chat ${recentChat.id} for outgoing message`);
+            }
+            chat = recentChat;
+          }
+        }
+
+        if (!chat) {
+          // Check if there's a closed chat to reuse the lead_id
+          let existingLeadId: string | null = null;
+          const { data: closedChat } = await supabase
+            .from("chats")
+            .select("lead_id")
+            .eq("tenant_id", tenantId)
+            .eq("instance_id", instance.id)
+            .eq("remote_jid", remoteJid)
+            .eq("status", "closed")
+            .order("last_message_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (closedChat?.lead_id) {
+            existingLeadId = closedChat.lead_id;
+            console.log(`[Protocol System] Found closed chat with lead_id ${existingLeadId}, will reuse for new chat`);
+          }
+
+          // Try to find a lead with this phone number (or use existing from closed chat)
+          const phoneNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@g.us", "");
+          let leadId = existingLeadId;
+
+          if (!leadId) {
+            const { data: foundLead } = await supabase
+              .from("leads")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .or(`phone.ilike.%${phoneNumber}%,phone.ilike.%${phoneNumber.slice(-9)}%`)
+              .limit(1)
+              .single();
+
+            if (foundLead) {
+              leadId = foundLead.id;
+            }
+          }
+
           // If no lead found, create one automatically
-          if (!lead) {
+          if (!leadId) {
             const contactName = messageData.pushName || formatPhoneForDisplay(phoneNumber);
             const instanceTag = instance.name || instanceName;
 
@@ -716,9 +774,9 @@ export async function POST(request: NextRequest) {
 
             if (leadError) {
               console.error("[Lead Auto-Create] Error:", leadError);
-            } else {
-              lead = newLead;
-              console.log(`[Lead Auto-Create] Success, id=${newLead?.id}`);
+            } else if (newLead) {
+              leadId = newLead.id;
+              console.log(`[Lead Auto-Create] Success, id=${newLead.id}`);
             }
           }
 
@@ -760,7 +818,7 @@ export async function POST(request: NextRequest) {
               // Only use pushName for contact_name if message is FROM the contact
               // When fromMe=true, pushName is OUR name, not the contact's
               contact_name: !fromMe ? (messageData.pushName || null) : null,
-              lead_id: lead?.id || null,
+              lead_id: leadId || null,
               last_message: insertPreview,
               last_message_at: new Date().toISOString(),
               unread_count: fromMe ? 0 : 1,
@@ -909,6 +967,9 @@ export async function POST(request: NextRequest) {
             timestamp: messageData.messageTimestamp
               ? new Date(Number(messageData.messageTimestamp) * 1000).toISOString()
               : new Date().toISOString(),
+            // Group message participant info
+            participant_jid: participantJid,
+            participant_name: participantName,
           });
         } else {
           // Update existing message if needed (e.g., media_url wasn't set)

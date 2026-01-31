@@ -19,6 +19,7 @@ import {
   Kanban,
   ChevronDown,
   Flame,
+  CheckSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ const navigation = [
   { name: "Leads", href: "/leads", icon: Users },
   // Inbox is handled separately with dropdown
   { name: "Kanban", href: "/kanban", icon: Kanban },
+  { name: "Tarefas", href: "/tarefas", icon: CheckSquare },
   { name: "Campanhas", href: "/campaigns", icon: Megaphone },
   { name: "Aquecimento", href: "/aquecimento", icon: Flame },
   { name: "Automações", href: "/automations", icon: Zap },
