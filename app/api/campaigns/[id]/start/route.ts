@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { evolutionApi } from "@/lib/evolution/client";
+
+const MODAL_API_URL = process.env.MODAL_API_URL || "https://scalecore-campaign-worker--process-campaign.modal.run";
+const MODAL_API_TOKEN = process.env.MODAL_TOKEN_ID && process.env.MODAL_TOKEN_SECRET
+  ? `${process.env.MODAL_TOKEN_ID}:${process.env.MODAL_TOKEN_SECRET}`
+  : null;
 
 export async function POST(
   request: NextRequest,
@@ -26,12 +30,13 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get campaign with instance
+    // Get campaign with instance and messages
     const { data: campaign, error } = await supabase
       .from("campaigns")
       .select(`
         *,
-        whatsapp_instances(id, instance_name, status)
+        whatsapp_instances(id, instance_name, status),
+        campaign_messages(id)
       `)
       .eq("id", id)
       .eq("tenant_id", tenantUser.tenant_id)
@@ -41,7 +46,7 @@ export async function POST(
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
-    if (!["draft", "paused"].includes(campaign.status)) {
+    if (!["draft", "paused", "scheduled"].includes(campaign.status)) {
       return NextResponse.json(
         { error: "Campaign cannot be started" },
         { status: 400 }
@@ -63,26 +68,75 @@ export async function POST(
       .eq("tenant_id", tenantUser.tenant_id)
       .single();
 
-    const pendingCount = campaign.total_recipients - campaign.sent_count;
-    const estimatedCost = pendingCount * 0.12;
+    // Calculate cost based on messages per recipient
+    const messagesCount = campaign.campaign_messages?.length || 1;
+    const pendingCount = (campaign.total_recipients || 0) - (campaign.sent_count || 0);
+    const estimatedCost = pendingCount * messagesCount * 0.12;
 
     if (!wallet || wallet.balance < estimatedCost) {
       return NextResponse.json(
-        { error: "Insufficient balance" },
+        {
+          error: "Insufficient balance",
+          required: estimatedCost,
+          available: wallet?.balance || 0
+        },
         { status: 402 }
       );
     }
 
-    // Update campaign status
+    // Update campaign status to running
     await supabase
       .from("campaigns")
       .update({
         status: "running",
+        modal_job_status: "starting",
         started_at: campaign.started_at || new Date().toISOString(),
       })
       .eq("id", id);
 
-    // Get pending sends
+    // Try to trigger Modal worker if configured
+    if (MODAL_API_TOKEN) {
+      try {
+        const response = await fetch(MODAL_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${MODAL_API_TOKEN}`,
+          },
+          body: JSON.stringify({
+            campaign_id: id,
+            tenant_id: tenantUser.tenant_id,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+
+          // Update with Modal job ID
+          await supabase
+            .from("campaigns")
+            .update({
+              modal_job_id: result.call_id || result.job_id,
+              modal_job_status: "processing",
+            })
+            .eq("id", id);
+
+          return NextResponse.json({
+            success: true,
+            message: "Campaign started with Modal worker",
+            job_id: result.call_id || result.job_id,
+          });
+        } else {
+          console.error("Modal API error:", await response.text());
+          // Fall through to fallback processing
+        }
+      } catch (modalError) {
+        console.error("Modal connection error:", modalError);
+        // Fall through to fallback processing
+      }
+    }
+
+    // Fallback: Process in-process (for development or when Modal is not configured)
     const { data: sends } = await supabase
       .from("campaign_sends")
       .select("id, phone, lead_id")
@@ -93,21 +147,22 @@ export async function POST(
     if (!sends || sends.length === 0) {
       await supabase
         .from("campaigns")
-        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          modal_job_status: "completed"
+        })
         .eq("id", id);
 
       return NextResponse.json({ success: true, message: "No pending sends" });
     }
 
-    // Start sending messages in background
-    // In production, this should be handled by a queue/worker
-    const delay = (campaign.settings as Record<string, number>)?.delay || 5;
+    // Start background processing (existing fallback logic)
+    const delay = (campaign.settings as Record<string, number>)?.delay || campaign.delay_between_recipients || 5;
 
-    processMessages(
+    processMessagesBackground(
       supabase,
-      campaign.id,
-      instance.instance_name,
-      campaign.message_template,
+      campaign,
       sends,
       delay,
       tenantUser.tenant_id
@@ -115,7 +170,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `Processing ${sends.length} messages`,
+      message: `Processing ${sends.length} recipients (fallback mode)`,
     });
   } catch (error) {
     console.error("Error starting campaign:", error);
@@ -126,87 +181,178 @@ export async function POST(
   }
 }
 
-async function processMessages(
+// Fallback in-process message processing
+async function processMessagesBackground(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  campaignId: string,
-  instanceName: string,
-  messageTemplate: string,
+  campaign: Record<string, unknown>,
   sends: Array<{ id: string; phone: string; lead_id: string | null }>,
   delaySeconds: number,
   tenantId: string
 ) {
+  const { getEvolutionClientForInstance } = await import("@/lib/evolution/config");
+
+  const campaignId = campaign.id as string;
+  const instanceId = campaign.instance_id as string;
+
+  // Get campaign messages
+  const { data: messages } = await supabase
+    .from("campaign_messages")
+    .select("*")
+    .eq("campaign_id", campaignId)
+    .order("position");
+
+  // Fall back to message_template if no messages
+  const messageList = messages?.length ? messages : [{
+    id: "legacy",
+    message_type: "text",
+    content: campaign.message_template as string,
+    delay_after: 0,
+  }];
+
+  const evolutionClient = await getEvolutionClientForInstance(instanceId);
+  if (!evolutionClient) {
+    await supabase
+      .from("campaigns")
+      .update({ status: "failed", modal_job_status: "failed" })
+      .eq("id", campaignId);
+    return;
+  }
+
+  const { data: instance } = await supabase
+    .from("whatsapp_instances")
+    .select("instance_name")
+    .eq("id", instanceId)
+    .single();
+
+  if (!instance) return;
+
   for (const send of sends) {
     try {
       // Check if campaign is still running
-      const { data: campaign } = await supabase
+      const { data: campaignCheck } = await supabase
         .from("campaigns")
         .select("status")
         .eq("id", campaignId)
         .single();
 
-      if (campaign?.status !== "running") {
-        console.log("Campaign stopped, exiting message processing");
+      if (campaignCheck?.status !== "running") {
         break;
       }
 
       // Get lead data for personalization
-      let message = messageTemplate;
+      let leadData: { name?: string; company?: string; email?: string; custom_fields?: Record<string, unknown> } | null = null;
       if (send.lead_id) {
         const { data: lead } = await supabase
           .from("leads")
-          .select("name, company")
+          .select("name, company, email, custom_fields")
           .eq("id", send.lead_id)
           .single();
-
-        if (lead) {
-          message = message
-            .replace(/\{\{nome\}\}/gi, lead.name || "")
-            .replace(/\{\{empresa\}\}/gi, lead.company || "");
-        }
+        leadData = lead;
       }
 
-      // Send message
-      const result = await evolutionApi.sendText(instanceName, {
-        number: send.phone,
-        text: message,
-        delay: 1000,
-      });
+      let allMessagesSent = true;
+      let lastMessageId: string | null = null;
 
-      if (result.success) {
-        // Update send status
-        await supabase
-          .from("campaign_sends")
-          .update({
-            status: "sent",
-            sent_at: new Date().toISOString(),
-            message_id: result.data?.key?.id,
-          })
-          .eq("id", send.id);
+      // Send all messages in sequence
+      for (let i = 0; i < messageList.length; i++) {
+        const msg = messageList[i];
+        let content = msg.content || "";
 
-        // Update campaign counts
-        await supabase.rpc("increment_campaign_sent", { p_campaign_id: campaignId });
+        // Replace variables
+        if (leadData) {
+          content = content
+            .replace(/\{\{nome\}\}/gi, leadData.name || "")
+            .replace(/\{\{empresa\}\}/gi, leadData.company || "")
+            .replace(/\{\{email\}\}/gi, leadData.email || "");
 
-        // Deduct from wallet
+          // Replace custom fields
+          if (leadData.custom_fields) {
+            for (const [key, value] of Object.entries(leadData.custom_fields)) {
+              const regex = new RegExp(`\\{\\{custom\\.${key}\\}\\}`, "gi");
+              content = content.replace(regex, String(value || ""));
+            }
+          }
+        }
+
+        // Clean up any remaining variables
+        content = content.replace(/\{\{[^}]+\}\}/g, "");
+
+        const delayMs = i > 0 ? (campaign.delay_between_messages as number || 3) * 1000 : 1000;
+
+        let result;
+        if (msg.message_type === "text") {
+          result = await evolutionClient.sendText(instance.instance_name, {
+            number: send.phone,
+            text: content,
+            delay: delayMs,
+          });
+        } else if (msg.media_url) {
+          result = await evolutionClient.sendMedia(instance.instance_name, {
+            number: send.phone,
+            mediatype: msg.message_type as "image" | "video" | "audio" | "document",
+            mimetype: msg.media_mimetype || "application/octet-stream",
+            caption: content || undefined,
+            media: msg.media_url,
+            fileName: msg.file_name,
+          });
+        }
+
+        if (!result?.success) {
+          allMessagesSent = false;
+          break;
+        }
+
+        lastMessageId = result.data?.key?.id || null;
+
+        // Record individual message
+        await supabase.from("campaign_send_messages").insert({
+          campaign_send_id: send.id,
+          campaign_message_id: msg.id !== "legacy" ? msg.id : null,
+          message_id: lastMessageId,
+          status: "sent",
+          sent_at: new Date().toISOString(),
+        });
+
+        // Deduct cost per message
         await supabase.rpc("deduct_wallet_balance", {
           p_tenant_id: tenantId,
           p_amount: 0.12,
           p_description: `Campanha: ${campaignId}`,
         });
+      }
+
+      if (allMessagesSent) {
+        await supabase
+          .from("campaign_sends")
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            message_id: lastMessageId,
+            messages_sent: messageList.length,
+            total_messages: messageList.length,
+          })
+          .eq("id", send.id);
+
+        await supabase.rpc("increment_campaign_count", {
+          campaign_id: campaignId,
+          field_name: "sent_count",
+        });
       } else {
-        // Mark as failed
         await supabase
           .from("campaign_sends")
           .update({
             status: "failed",
-            error_message: result.error || "Unknown error",
+            error_message: "Failed to send all messages",
           })
           .eq("id", send.id);
 
-        // Update failed count
-        await supabase.rpc("increment_campaign_failed", { p_campaign_id: campaignId });
+        await supabase.rpc("increment_campaign_count", {
+          campaign_id: campaignId,
+          field_name: "failed_count",
+        });
       }
 
-      // Wait before next message
+      // Wait between recipients
       await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
     } catch (error) {
       console.error("Error processing message:", error);
@@ -231,7 +377,11 @@ async function processMessages(
   if (pendingCount === 0) {
     await supabase
       .from("campaigns")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        modal_job_status: "completed"
+      })
       .eq("id", campaignId);
   }
 }

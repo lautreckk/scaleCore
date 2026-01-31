@@ -486,13 +486,20 @@ export interface Database {
           actual_cost: number | null
           created_by: string | null
           created_at: string | null
+          modal_job_id: string | null
+          modal_job_status: string | null
+          delay_between_messages: number | null
+          delay_between_recipients: number | null
+          filter_criteria: Json | null
+          error_log: string[] | null
+          settings: Json | null
         }
         Insert: {
           id?: string
           tenant_id?: string | null
           instance_id?: string | null
           name: string
-          message_template: string
+          message_template?: string
           status?: string | null
           scheduled_at?: string | null
           started_at?: string | null
@@ -509,6 +516,13 @@ export interface Database {
           actual_cost?: number | null
           created_by?: string | null
           created_at?: string | null
+          modal_job_id?: string | null
+          modal_job_status?: string | null
+          delay_between_messages?: number | null
+          delay_between_recipients?: number | null
+          filter_criteria?: Json | null
+          error_log?: string[] | null
+          settings?: Json | null
         }
         Update: {
           id?: string
@@ -532,6 +546,83 @@ export interface Database {
           actual_cost?: number | null
           created_by?: string | null
           created_at?: string | null
+          modal_job_id?: string | null
+          modal_job_status?: string | null
+          delay_between_messages?: number | null
+          delay_between_recipients?: number | null
+          filter_criteria?: Json | null
+          error_log?: string[] | null
+          settings?: Json | null
+        }
+      }
+      campaign_messages: {
+        Row: {
+          id: string
+          campaign_id: string
+          position: number
+          message_type: string | null
+          content: string | null
+          media_url: string | null
+          media_mimetype: string | null
+          file_name: string | null
+          delay_after: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          position?: number
+          message_type?: string | null
+          content?: string | null
+          media_url?: string | null
+          media_mimetype?: string | null
+          file_name?: string | null
+          delay_after?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          position?: number
+          message_type?: string | null
+          content?: string | null
+          media_url?: string | null
+          media_mimetype?: string | null
+          file_name?: string | null
+          delay_after?: number | null
+          created_at?: string | null
+        }
+      }
+      campaign_send_messages: {
+        Row: {
+          id: string
+          campaign_send_id: string | null
+          campaign_message_id: string | null
+          message_id: string | null
+          status: string | null
+          sent_at: string | null
+          error_message: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          campaign_send_id?: string | null
+          campaign_message_id?: string | null
+          message_id?: string | null
+          status?: string | null
+          sent_at?: string | null
+          error_message?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          campaign_send_id?: string | null
+          campaign_message_id?: string | null
+          message_id?: string | null
+          status?: string | null
+          sent_at?: string | null
+          error_message?: string | null
+          created_at?: string | null
         }
       }
       campaign_sends: {
@@ -539,6 +630,7 @@ export interface Database {
           id: string
           campaign_id: string | null
           lead_id: string | null
+          phone: string | null
           message_id: string | null
           status: string | null
           error_message: string | null
@@ -546,11 +638,16 @@ export interface Database {
           delivered_at: string | null
           read_at: string | null
           created_at: string | null
+          current_message_index: number | null
+          messages_sent: number | null
+          total_messages: number | null
+          retry_count: number | null
         }
         Insert: {
           id?: string
           campaign_id?: string | null
           lead_id?: string | null
+          phone?: string | null
           message_id?: string | null
           status?: string | null
           error_message?: string | null
@@ -558,11 +655,16 @@ export interface Database {
           delivered_at?: string | null
           read_at?: string | null
           created_at?: string | null
+          current_message_index?: number | null
+          messages_sent?: number | null
+          total_messages?: number | null
+          retry_count?: number | null
         }
         Update: {
           id?: string
           campaign_id?: string | null
           lead_id?: string | null
+          phone?: string | null
           message_id?: string | null
           status?: string | null
           error_message?: string | null
@@ -570,6 +672,10 @@ export interface Database {
           delivered_at?: string | null
           read_at?: string | null
           created_at?: string | null
+          current_message_index?: number | null
+          messages_sent?: number | null
+          total_messages?: number | null
+          retry_count?: number | null
         }
       }
       contact_lists: {
@@ -1001,6 +1107,384 @@ export interface Database {
           filters?: Json
           is_default?: boolean | null
           created_at?: string | null
+        }
+      }
+      warming_configs: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          description: string | null
+          status: 'active' | 'inactive' | 'paused'
+          run_24h: boolean
+          start_time: string
+          end_time: string
+          days_of_week: number[]
+          timezone: string
+          text_messages_enabled: boolean
+          text_messages_weight: number
+          audio_messages_enabled: boolean
+          audio_messages_weight: number
+          image_messages_enabled: boolean
+          image_messages_weight: number
+          document_messages_enabled: boolean
+          document_messages_weight: number
+          video_messages_enabled: boolean
+          video_messages_weight: number
+          status_posts_enabled: boolean
+          status_posts_weight: number
+          status_views_enabled: boolean
+          status_views_weight: number
+          reactions_enabled: boolean
+          reactions_weight: number
+          min_delay_between_actions: number
+          max_delay_between_actions: number
+          min_typing_duration: number
+          max_typing_duration: number
+          max_messages_per_day: number
+          max_audio_per_day: number
+          max_media_per_day: number
+          max_status_per_day: number
+          max_reactions_per_day: number
+          use_ai_conversations: boolean
+          ai_topics: string[] | null
+          ai_tone: string
+          ai_language: string
+          total_actions_executed: number
+          total_messages_sent: number
+          last_action_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          name: string
+          description?: string | null
+          status?: 'active' | 'inactive' | 'paused'
+          run_24h?: boolean
+          start_time?: string
+          end_time?: string
+          days_of_week?: number[]
+          timezone?: string
+          text_messages_enabled?: boolean
+          text_messages_weight?: number
+          audio_messages_enabled?: boolean
+          audio_messages_weight?: number
+          image_messages_enabled?: boolean
+          image_messages_weight?: number
+          document_messages_enabled?: boolean
+          document_messages_weight?: number
+          video_messages_enabled?: boolean
+          video_messages_weight?: number
+          status_posts_enabled?: boolean
+          status_posts_weight?: number
+          status_views_enabled?: boolean
+          status_views_weight?: number
+          reactions_enabled?: boolean
+          reactions_weight?: number
+          min_delay_between_actions?: number
+          max_delay_between_actions?: number
+          min_typing_duration?: number
+          max_typing_duration?: number
+          max_messages_per_day?: number
+          max_audio_per_day?: number
+          max_media_per_day?: number
+          max_status_per_day?: number
+          max_reactions_per_day?: number
+          use_ai_conversations?: boolean
+          ai_topics?: string[] | null
+          ai_tone?: string
+          ai_language?: string
+          total_actions_executed?: number
+          total_messages_sent?: number
+          last_action_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          name?: string
+          description?: string | null
+          status?: 'active' | 'inactive' | 'paused'
+          run_24h?: boolean
+          start_time?: string
+          end_time?: string
+          days_of_week?: number[]
+          timezone?: string
+          text_messages_enabled?: boolean
+          text_messages_weight?: number
+          audio_messages_enabled?: boolean
+          audio_messages_weight?: number
+          image_messages_enabled?: boolean
+          image_messages_weight?: number
+          document_messages_enabled?: boolean
+          document_messages_weight?: number
+          video_messages_enabled?: boolean
+          video_messages_weight?: number
+          status_posts_enabled?: boolean
+          status_posts_weight?: number
+          status_views_enabled?: boolean
+          status_views_weight?: number
+          reactions_enabled?: boolean
+          reactions_weight?: number
+          min_delay_between_actions?: number
+          max_delay_between_actions?: number
+          min_typing_duration?: number
+          max_typing_duration?: number
+          max_messages_per_day?: number
+          max_audio_per_day?: number
+          max_media_per_day?: number
+          max_status_per_day?: number
+          max_reactions_per_day?: number
+          use_ai_conversations?: boolean
+          ai_topics?: string[] | null
+          ai_tone?: string
+          ai_language?: string
+          total_actions_executed?: number
+          total_messages_sent?: number
+          last_action_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      warming_config_instances: {
+        Row: {
+          id: string
+          warming_config_id: string
+          instance_id: string
+          messages_sent_today: number
+          audio_sent_today: number
+          media_sent_today: number
+          status_posted_today: number
+          reactions_sent_today: number
+          last_action_at: string | null
+          counters_reset_date: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          warming_config_id: string
+          instance_id: string
+          messages_sent_today?: number
+          audio_sent_today?: number
+          media_sent_today?: number
+          status_posted_today?: number
+          reactions_sent_today?: number
+          last_action_at?: string | null
+          counters_reset_date?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          warming_config_id?: string
+          instance_id?: string
+          messages_sent_today?: number
+          audio_sent_today?: number
+          media_sent_today?: number
+          status_posted_today?: number
+          reactions_sent_today?: number
+          last_action_at?: string | null
+          counters_reset_date?: string
+          is_active?: boolean
+          created_at?: string
+        }
+      }
+      warming_sessions: {
+        Row: {
+          id: string
+          warming_config_id: string
+          tenant_id: string
+          status: 'running' | 'paused' | 'completed' | 'failed'
+          started_at: string
+          paused_at: string | null
+          completed_at: string | null
+          next_action_at: string | null
+          next_action_type: string | null
+          actions_executed: number
+          errors_count: number
+          last_error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          warming_config_id: string
+          tenant_id: string
+          status?: 'running' | 'paused' | 'completed' | 'failed'
+          started_at?: string
+          paused_at?: string | null
+          completed_at?: string | null
+          next_action_at?: string | null
+          next_action_type?: string | null
+          actions_executed?: number
+          errors_count?: number
+          last_error?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          warming_config_id?: string
+          tenant_id?: string
+          status?: 'running' | 'paused' | 'completed' | 'failed'
+          started_at?: string
+          paused_at?: string | null
+          completed_at?: string | null
+          next_action_at?: string | null
+          next_action_type?: string | null
+          actions_executed?: number
+          errors_count?: number
+          last_error?: string | null
+          created_at?: string
+        }
+      }
+      warming_conversations: {
+        Row: {
+          id: string
+          session_id: string | null
+          warming_config_id: string
+          initiator_instance_id: string
+          receiver_instance_id: string
+          status: 'active' | 'completed'
+          topic: string | null
+          message_count: number
+          target_messages: number
+          ai_context: Json
+          started_at: string
+          last_message_at: string | null
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          session_id?: string | null
+          warming_config_id: string
+          initiator_instance_id: string
+          receiver_instance_id: string
+          status?: 'active' | 'completed'
+          topic?: string | null
+          message_count?: number
+          target_messages?: number
+          ai_context?: Json
+          started_at?: string
+          last_message_at?: string | null
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          session_id?: string | null
+          warming_config_id?: string
+          initiator_instance_id?: string
+          receiver_instance_id?: string
+          status?: 'active' | 'completed'
+          topic?: string | null
+          message_count?: number
+          target_messages?: number
+          ai_context?: Json
+          started_at?: string
+          last_message_at?: string | null
+          completed_at?: string | null
+        }
+      }
+      warming_action_logs: {
+        Row: {
+          id: string
+          warming_config_id: string
+          session_id: string | null
+          conversation_id: string | null
+          tenant_id: string
+          action_type: string
+          from_instance_id: string | null
+          to_instance_id: string | null
+          content: string | null
+          media_url: string | null
+          message_id: string | null
+          status: 'success' | 'failed' | 'pending'
+          error_message: string | null
+          ai_generated: boolean
+          ai_tokens_used: number | null
+          ai_cost_cents: number | null
+          executed_at: string
+        }
+        Insert: {
+          id?: string
+          warming_config_id: string
+          session_id?: string | null
+          conversation_id?: string | null
+          tenant_id: string
+          action_type: string
+          from_instance_id?: string | null
+          to_instance_id?: string | null
+          content?: string | null
+          media_url?: string | null
+          message_id?: string | null
+          status?: 'success' | 'failed' | 'pending'
+          error_message?: string | null
+          ai_generated?: boolean
+          ai_tokens_used?: number | null
+          ai_cost_cents?: number | null
+          executed_at?: string
+        }
+        Update: {
+          id?: string
+          warming_config_id?: string
+          session_id?: string | null
+          conversation_id?: string | null
+          tenant_id?: string
+          action_type?: string
+          from_instance_id?: string | null
+          to_instance_id?: string | null
+          content?: string | null
+          media_url?: string | null
+          message_id?: string | null
+          status?: 'success' | 'failed' | 'pending'
+          error_message?: string | null
+          ai_generated?: boolean
+          ai_tokens_used?: number | null
+          ai_cost_cents?: number | null
+          executed_at?: string
+        }
+      }
+      warming_message_templates: {
+        Row: {
+          id: string
+          tenant_id: string | null
+          category: string
+          content: string
+          language: string
+          can_start_conversation: boolean
+          can_continue_conversation: boolean
+          is_active: boolean
+          usage_count: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id?: string | null
+          category: string
+          content: string
+          language?: string
+          can_start_conversation?: boolean
+          can_continue_conversation?: boolean
+          is_active?: boolean
+          usage_count?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string | null
+          category?: string
+          content?: string
+          language?: string
+          can_start_conversation?: boolean
+          can_continue_conversation?: boolean
+          is_active?: boolean
+          usage_count?: number
+          created_at?: string
         }
       }
     }

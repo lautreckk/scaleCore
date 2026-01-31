@@ -193,6 +193,40 @@ export interface PrivacySettings {
   groupadd: "all" | "contacts" | "contact_blacklist";
 }
 
+// Warming / Voice Message Types
+export interface SendWhatsAppAudioParams {
+  number: string;
+  audio: string; // URL or base64
+  delay?: number;
+  encoding?: boolean;
+}
+
+export interface SendStatusParams {
+  type: "text" | "image" | "video" | "audio";
+  content: string; // text or URL
+  caption?: string;
+  backgroundColor?: string;
+  font?: 1 | 2 | 3 | 4 | 5;
+  allContacts?: boolean;
+  statusJidList?: string[];
+}
+
+export interface SendReactionParams {
+  key: { remoteJid: string; fromMe: boolean; id: string };
+  reaction: string; // emoji
+}
+
+export interface SetInstancePresenceParams {
+  presence: "available" | "unavailable";
+}
+
+export interface StatusMessage {
+  key: { remoteJid: string; fromMe: boolean; id: string };
+  message: object;
+  messageTimestamp: string;
+  status?: string;
+}
+
 export interface EvolutionApiClient {
   testConnection(): Promise<EvolutionApiResponse<{ status: string }>>;
   createInstance(params: CreateInstanceParams): Promise<EvolutionApiResponse<InstanceData>>;
@@ -253,6 +287,13 @@ export interface EvolutionApiClient {
   removeProfilePicture(instanceName: string): Promise<EvolutionApiResponse<void>>;
   fetchPrivacySettings(instanceName: string): Promise<EvolutionApiResponse<PrivacySettings>>;
   updatePrivacySettings(instanceName: string, settings: Partial<PrivacySettings>): Promise<EvolutionApiResponse<void>>;
+
+  // Warming / Voice / Status Methods
+  sendWhatsAppAudio(instanceName: string, params: SendWhatsAppAudioParams): Promise<EvolutionApiResponse<SendMessageResponse>>;
+  sendStatus(instanceName: string, params: SendStatusParams): Promise<EvolutionApiResponse<unknown>>;
+  findStatusMessages(instanceName: string, remoteJid?: string): Promise<EvolutionApiResponse<StatusMessage[]>>;
+  sendReaction(instanceName: string, params: SendReactionParams): Promise<EvolutionApiResponse<void>>;
+  setInstancePresence(instanceName: string, params: SetInstancePresenceParams): Promise<EvolutionApiResponse<void>>;
 }
 
 export function createEvolutionClient(credentials: EvolutionCredentials): EvolutionApiClient {
@@ -697,6 +738,64 @@ export function createEvolutionClient(credentials: EvolutionCredentials): Evolut
           body: JSON.stringify(settings),
         }
       );
+    },
+
+    // Warming / Voice / Status Methods
+
+    async sendWhatsAppAudio(
+      instanceName: string,
+      params: SendWhatsAppAudioParams
+    ): Promise<EvolutionApiResponse<SendMessageResponse>> {
+      return evolutionFetch<SendMessageResponse>(
+        `/message/sendWhatsAppAudio/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify(params),
+        }
+      );
+    },
+
+    async sendStatus(
+      instanceName: string,
+      params: SendStatusParams
+    ): Promise<EvolutionApiResponse<unknown>> {
+      return evolutionFetch<unknown>(`/message/sendStatus/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async findStatusMessages(
+      instanceName: string,
+      remoteJid?: string
+    ): Promise<EvolutionApiResponse<StatusMessage[]>> {
+      return evolutionFetch<StatusMessage[]>(
+        `/chat/findStatusMessage/${instanceName}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ where: remoteJid ? { remoteJid } : {} }),
+        }
+      );
+    },
+
+    async sendReaction(
+      instanceName: string,
+      params: SendReactionParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/message/sendReaction/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    async setInstancePresence(
+      instanceName: string,
+      params: SetInstancePresenceParams
+    ): Promise<EvolutionApiResponse<void>> {
+      return evolutionFetch<void>(`/instance/setPresence/${instanceName}`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
     },
   };
 }
