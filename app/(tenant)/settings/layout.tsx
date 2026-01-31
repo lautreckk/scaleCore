@@ -10,6 +10,7 @@ import {
   Webhook,
   Bell,
   CreditCard,
+  Zap,
 } from "lucide-react";
 
 const settingsNav = [
@@ -17,6 +18,7 @@ const settingsNav = [
   { label: "Empresa", href: "/settings/company", icon: Building2 },
   { label: "Integrações", href: "/settings/integrations", icon: Plug },
   { label: "Fontes de Leads", href: "/settings/sources", icon: Webhook },
+  { label: "Mensagens Rápidas", href: "/settings/quick-replies", icon: Zap },
   { label: "Notificações", href: "/settings/notifications", icon: Bell },
   { label: "Faturamento", href: "/settings/billing", icon: CreditCard },
 ];

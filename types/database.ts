@@ -1487,6 +1487,62 @@ export interface Database {
           created_at?: string
         }
       }
+      quick_replies: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          shortcut: string | null
+          category: string | null
+          message_type: string
+          content: string | null
+          media_url: string | null
+          media_mimetype: string | null
+          file_name: string | null
+          usage_count: number
+          is_active: boolean
+          position: number
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          name: string
+          shortcut?: string | null
+          category?: string | null
+          message_type?: string
+          content?: string | null
+          media_url?: string | null
+          media_mimetype?: string | null
+          file_name?: string | null
+          usage_count?: number
+          is_active?: boolean
+          position?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          name?: string
+          shortcut?: string | null
+          category?: string | null
+          message_type?: string
+          content?: string | null
+          media_url?: string | null
+          media_mimetype?: string | null
+          file_name?: string | null
+          usage_count?: number
+          is_active?: boolean
+          position?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

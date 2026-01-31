@@ -13,6 +13,7 @@ import {
   File,
 } from "lucide-react";
 import { AudioRecorder } from "./audio-recorder";
+import { QuickReplyPopup, QuickReply } from "./quick-reply-popup";
 import { cn } from "@/lib/utils";
 
 interface MessageInputProps {
@@ -34,8 +35,11 @@ export function MessageInput({
   const [sending, setSending] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [quickReplySearch, setQuickReplySearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = async () => {
     if (sending || disabled) return;
@@ -70,9 +74,66 @@ export function MessageInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Don't handle Enter if quick replies popup is open (let popup handle it)
+    if (showQuickReplies && (e.key === "Enter" || e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Escape")) {
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setMessage(value);
+
+    // Detect "/" for quick replies
+    const slashMatch = value.match(/\/(\S*)$/);
+    if (slashMatch) {
+      setQuickReplySearch(slashMatch[1]);
+      setShowQuickReplies(true);
+    } else if (!value.includes("/")) {
+      setShowQuickReplies(false);
+      setQuickReplySearch("");
+    }
+
+    if (value && onTyping) {
+      onTyping();
+    }
+  };
+
+  const handleQuickReplySelect = async (reply: QuickReply) => {
+    setShowQuickReplies(false);
+    setQuickReplySearch("");
+
+    if (reply.message_type === "text" && reply.content) {
+      // Replace /search with content
+      const newMessage = message.replace(/\/\S*$/, reply.content);
+      setMessage(newMessage);
+      textareaRef.current?.focus();
+    } else if (reply.media_url) {
+      // Clear the slash from message
+      setMessage(message.replace(/\/\S*$/, ""));
+
+      // Send media directly
+      setSending(true);
+      try {
+        // Fetch the media file
+        const response = await fetch(reply.media_url);
+        const blob = await response.blob();
+        const file = new window.File([blob], reply.file_name || "media", {
+          type: reply.media_mimetype || "application/octet-stream",
+        });
+
+        const type = reply.message_type as "image" | "video" | "audio" | "document";
+        await onSendMedia(file, type);
+      } catch (error) {
+        console.error("Error sending quick reply media:", error);
+        toast.error("Erro ao enviar midia");
+      } finally {
+        setSending(false);
+      }
     }
   };
 
@@ -194,16 +255,21 @@ export function MessageInput({
         </Button>
 
         {/* Text Input */}
-        <div className="flex-1">
+        <div className="flex-1 relative">
+          <QuickReplyPopup
+            isOpen={showQuickReplies}
+            searchQuery={quickReplySearch}
+            onSelect={handleQuickReplySelect}
+            onClose={() => {
+              setShowQuickReplies(false);
+              setQuickReplySearch("");
+            }}
+          />
           <Textarea
+            ref={textareaRef}
             placeholder={selectedFile ? "Adicione uma legenda..." : placeholder}
             value={message}
-            onChange={(e) => {
-              setMessage(e.target.value);
-              if (e.target.value && onTyping) {
-                onTyping();
-              }
-            }}
+            onChange={handleMessageChange}
             onKeyDown={handleKeyDown}
             disabled={disabled || sending}
             className={cn(
