@@ -50,18 +50,23 @@ export async function updateSession(request: NextRequest) {
   const publicRoutes = ["/login", "/register", "/forgot-password", "/auth/callback"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
+  // Landing page is public (root route exactly)
+  const isLandingPage = pathname === "/";
+
   // API routes that handle their own auth
   const isApiRoute = pathname.startsWith("/api/");
 
-  if (!user && !isPublicRoute && !isApiRoute) {
+  // Redirect to login if not authenticated (except public routes and landing page)
+  if (!user && !isPublicRoute && !isApiRoute && !isLandingPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
+  // Redirect authenticated users from auth pages to dashboard
   if (user && isPublicRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
