@@ -9,6 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   User,
   Phone,
   Mail,
@@ -19,6 +26,7 @@ import {
   Loader2,
   ExternalLink,
   Smartphone,
+  GitBranch,
 } from "lucide-react";
 import Link from "next/link";
 import { formatPhone, LEAD_STATUS_OPTIONS } from "@/lib/utils";
@@ -72,6 +80,7 @@ export function ContactPanel({ chatId }: ContactPanelProps) {
   const [addingTag, setAddingTag] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -234,6 +243,28 @@ export function ContactPanel({ chatId }: ContactPanelProps) {
     }
   };
 
+  const updateLeadStatus = async (newStatus: string) => {
+    if (!lead) return;
+
+    setUpdatingStatus(true);
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", lead.id);
+
+      if (error) throw error;
+
+      setLead({ ...lead, status: newStatus });
+      toast.success(`Lead movido para ${getStatusLabel(newStatus)}`);
+    } catch (error) {
+      console.error("Error updating lead status:", error);
+      toast.error("Erro ao atualizar status do lead");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const getStatusColor = (status: string | null) => {
     const option = LEAD_STATUS_OPTIONS.find((o) => o.value === status);
     return option?.color || "bg-gray-500";
@@ -335,13 +366,45 @@ export function ContactPanel({ chatId }: ContactPanelProps) {
                   {formatPhone(lead.phone)}
                 </p>
               )}
+            </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Status:</span>
-                <Badge className={getStatusColor(lead.status)}>
-                  {getStatusLabel(lead.status)}
-                </Badge>
-              </div>
+            {/* Funnel Stage Selector */}
+            <div className="space-y-2 pt-2 border-t border-border/50">
+              <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <GitBranch className="h-3 w-3" />
+                Etapa do Funil
+              </label>
+              <Select
+                value={lead.status || "new"}
+                onValueChange={updateLeadStatus}
+                disabled={updatingStatus}
+              >
+                <SelectTrigger className="w-full">
+                  {updatingStatus ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Movendo...</span>
+                    </div>
+                  ) : (
+                    <SelectValue>
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2 w-2 rounded-full ${getStatusColor(lead.status)}`} />
+                        {getStatusLabel(lead.status)}
+                      </div>
+                    </SelectValue>
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2 w-2 rounded-full ${option.color}`} />
+                        {option.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         ) : (
