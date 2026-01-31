@@ -613,7 +613,9 @@ export async function POST(request: NextRequest) {
               tenant_id: tenantId,
               instance_id: instance.id,
               remote_jid: remoteJid,
-              contact_name: messageData.pushName || null,
+              // Only use pushName for contact_name if message is FROM the contact
+              // When fromMe=true, pushName is OUR name, not the contact's
+              contact_name: !fromMe ? (messageData.pushName || null) : null,
               lead_id: lead?.id || null,
               last_message: insertPreview,
               last_message_at: new Date().toISOString(),
@@ -656,8 +658,9 @@ export async function POST(request: NextRequest) {
             console.log(`[Chat Update] Skipping last_message update - preview is empty`);
           }
 
-          // Only update contact_name if we have one
-          if (messageData.pushName) {
+          // Only update contact_name if message is FROM the contact (not from us)
+          // pushName when fromMe=true is OUR name, not the contact's name
+          if (messageData.pushName && !fromMe) {
             updateData.contact_name = messageData.pushName;
           }
 
