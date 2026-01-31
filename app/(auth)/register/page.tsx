@@ -48,42 +48,21 @@ export default function RegisterPage() {
         return;
       }
 
-      // Create tenant
+      // Create tenant using the secure function
       const slug = slugify(companyName);
-      const { data: tenant, error: tenantError } = await supabase
-        .from("tenants")
-        .insert({
-          name: companyName,
-          slug,
-          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        })
-        .select()
-        .single();
+      const { error: registerError } = await supabase
+        .rpc("register_tenant", {
+          p_user_id: authData.user.id,
+          p_user_name: name,
+          p_user_email: email,
+          p_company_name: companyName,
+          p_company_slug: slug,
+        });
 
-      if (tenantError) {
-        toast.error("Erro ao criar empresa: " + tenantError.message);
+      if (registerError) {
+        toast.error("Erro ao criar empresa: " + registerError.message);
         return;
       }
-
-      // Create tenant user as owner
-      const { error: userError } = await supabase.from("tenant_users").insert({
-        tenant_id: tenant.id,
-        user_id: authData.user.id,
-        name,
-        email,
-        role: "owner",
-      });
-
-      if (userError) {
-        toast.error("Erro ao vincular usuário: " + userError.message);
-        return;
-      }
-
-      // Create wallet for tenant
-      await supabase.from("wallets").insert({
-        tenant_id: tenant.id,
-        balance: 0,
-      });
 
       toast.success("Conta criada com sucesso! Verifique seu email para confirmar.");
       router.push("/login");
