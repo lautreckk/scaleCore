@@ -9,6 +9,7 @@ import { ConfigCard } from "@/components/aquecimento/config-card";
 import { ConfigModal } from "@/components/aquecimento/config-modal";
 import { ActivityLog } from "@/components/aquecimento/activity-log";
 import { StatsCards } from "@/components/aquecimento/stats-cards";
+import { MediaLibrary } from "@/components/aquecimento/media-library";
 import { toast } from "sonner";
 import {
   Plus,
@@ -16,6 +17,7 @@ import {
   ListFilter,
   Activity,
   AlertCircle,
+  FolderOpen,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -75,6 +77,7 @@ export default function AquecimentoPage() {
   const [editingConfig, setEditingConfig] = useState<WarmingConfig | null>(null);
   const [deleteConfigId, setDeleteConfigId] = useState<string | null>(null);
   const [statsPeriod, setStatsPeriod] = useState<"today" | "week" | "month">("today");
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
 
   const supabase = createClient();
 
@@ -225,10 +228,16 @@ export default function AquecimentoPage() {
             Mantenha seus chips WhatsApp ativos e evite bloqueios
           </p>
         </div>
-        <Button onClick={handleCreateConfig} disabled={!hasEnoughInstances}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Configuracao
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowMediaLibrary(true)}>
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Biblioteca de Midia
+          </Button>
+          <Button onClick={handleCreateConfig} disabled={!hasEnoughInstances}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Configuracao
+          </Button>
+        </div>
       </div>
 
       {/* Warning if not enough instances */}
@@ -361,6 +370,12 @@ export default function AquecimentoPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Media Library */}
+      <MediaLibrary
+        open={showMediaLibrary}
+        onOpenChange={setShowMediaLibrary}
+      />
     </div>
   );
 }

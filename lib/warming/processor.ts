@@ -265,6 +265,12 @@ async function executeAction(
       }
 
       case "audio_message": {
+        // Get random audio from media library
+        const audioMedia = await getRandomMedia(supabase, config.tenant_id, "audio");
+        if (!audioMedia) {
+          throw new Error("No audio files in media library");
+        }
+
         // Send recording presence
         await evolutionClient.sendPresence(senderInstance.instance_name, {
           number: receiverNumber,
@@ -272,10 +278,25 @@ async function executeAction(
           delay: getRecordingDuration(config.min_typing_duration, config.max_typing_duration) * 1000,
         });
 
-        // For audio, we need a pre-recorded audio file
-        // In a real implementation, you'd have a library of short audio clips
-        // For now, we'll skip if no audio URLs are configured
-        content = "[Audio message - requires audio library]";
+        // Wait for recording simulation
+        await sleep(getRecordingDuration(config.min_typing_duration, config.max_typing_duration) * 1000);
+
+        // Send audio
+        const audioResult = await evolutionClient.sendMedia(senderInstance.instance_name, {
+          number: receiverNumber,
+          mediatype: "audio",
+          mimetype: audioMedia.mime_type || "audio/mpeg",
+          media: audioMedia.file_url,
+        });
+
+        if (audioResult.success && audioResult.data) {
+          messageId = audioResult.data.key?.id || null;
+        }
+
+        content = `Audio: ${audioMedia.name}`;
+
+        // Update usage count
+        await incrementMediaUsage(supabase, audioMedia.id);
         break;
       }
 
@@ -342,12 +363,94 @@ async function executeAction(
         break;
       }
 
-      case "image_message":
-      case "document_message":
+      case "image_message": {
+        // Get random image from media library
+        const imageMedia = await getRandomMedia(supabase, config.tenant_id, "image");
+        if (!imageMedia) {
+          throw new Error("No image files in media library");
+        }
+
+        // Send typing presence briefly
+        await evolutionClient.sendPresence(senderInstance.instance_name, {
+          number: receiverNumber,
+          presence: "composing",
+          delay: 2000,
+        });
+
+        await sleep(2000);
+
+        // Send image
+        const imageResult = await evolutionClient.sendMedia(senderInstance.instance_name, {
+          number: receiverNumber,
+          mediatype: "image",
+          mimetype: imageMedia.mime_type || "image/jpeg",
+          media: imageMedia.file_url,
+        });
+
+        if (imageResult.success && imageResult.data) {
+          messageId = imageResult.data.key?.id || null;
+        }
+
+        content = `Image: ${imageMedia.name}`;
+        await incrementMediaUsage(supabase, imageMedia.id);
+        break;
+      }
+
+      case "document_message": {
+        // Get random document from media library
+        const docMedia = await getRandomMedia(supabase, config.tenant_id, "document");
+        if (!docMedia) {
+          throw new Error("No document files in media library");
+        }
+
+        // Send document
+        const docResult = await evolutionClient.sendMedia(senderInstance.instance_name, {
+          number: receiverNumber,
+          mediatype: "document",
+          mimetype: docMedia.mime_type || "application/pdf",
+          media: docMedia.file_url,
+          fileName: docMedia.name,
+        });
+
+        if (docResult.success && docResult.data) {
+          messageId = docResult.data.key?.id || null;
+        }
+
+        content = `Document: ${docMedia.name}`;
+        await incrementMediaUsage(supabase, docMedia.id);
+        break;
+      }
+
       case "video_message": {
-        // These require media files to be configured
-        // Skip for now or implement with a media library
-        content = `[${actionType} - requires media library]`;
+        // Get random video from media library
+        const videoMedia = await getRandomMedia(supabase, config.tenant_id, "video");
+        if (!videoMedia) {
+          throw new Error("No video files in media library");
+        }
+
+        // Send typing presence
+        await evolutionClient.sendPresence(senderInstance.instance_name, {
+          number: receiverNumber,
+          presence: "composing",
+          delay: 3000,
+        });
+
+        await sleep(3000);
+
+        // Send video
+        const videoResult = await evolutionClient.sendMedia(senderInstance.instance_name, {
+          number: receiverNumber,
+          mediatype: "video",
+          mimetype: videoMedia.mime_type || "video/mp4",
+          media: videoMedia.file_url,
+        });
+
+        if (videoResult.success && videoResult.data) {
+          messageId = videoResult.data.key?.id || null;
+        }
+
+        content = `Video: ${videoMedia.name}`;
+        await incrementMediaUsage(supabase, videoMedia.id);
         break;
       }
     }
@@ -481,4 +584,42 @@ async function getEvolutionClient(
     url: evolutionConfig.url,
     apiKey: evolutionConfig.api_key_encrypted, // In production, decrypt this
   });
+}
+
+interface WarmingMedia {
+  id: string;
+  type: string;
+  name: string;
+  file_url: string;
+  file_size: number;
+  mime_type: string;
+  duration_seconds: number | null;
+}
+
+async function getRandomMedia(
+  supabase: SupabaseClient<Database>,
+  tenantId: string,
+  type: "audio" | "image" | "document" | "video"
+): Promise<WarmingMedia | null> {
+  const { data: media, error } = await supabase
+    .from("warming_media")
+    .select("id, type, name, file_url, file_size, mime_type, duration_seconds")
+    .eq("tenant_id", tenantId)
+    .eq("type", type)
+    .eq("is_active", true);
+
+  if (error || !media || media.length === 0) {
+    return null;
+  }
+
+  // Return random media
+  const randomIndex = Math.floor(Math.random() * media.length);
+  return media[randomIndex] as WarmingMedia;
+}
+
+async function incrementMediaUsage(
+  supabase: SupabaseClient<Database>,
+  mediaId: string
+): Promise<void> {
+  await supabase.rpc("increment_warming_media_usage", { media_id: mediaId });
 }
