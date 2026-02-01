@@ -227,6 +227,16 @@ async function executeAction(
   try {
     switch (actionType) {
       case "text_message": {
+        // Fetch conversation history to provide context
+        const conversationHistory = await getConversationHistory(
+          evolutionClient,
+          senderInstance.instance_name,
+          receiverNumber
+        );
+
+        // Decide if we should start new conversation or continue
+        const shouldStartNew = shouldStartNewConversation(conversationHistory);
+
         // Send typing presence
         await evolutionClient.sendPresence(senderInstance.instance_name, {
           number: receiverNumber,
@@ -234,14 +244,15 @@ async function executeAction(
           delay: getTypingDuration(config.min_typing_duration, config.max_typing_duration) * 1000,
         });
 
-        // Generate message
+        // Generate message with context
         const generated = await generateMessage({
           tenantId: config.tenant_id,
           useAI: config.use_ai_conversations,
           aiTopics: config.ai_topics,
           aiTone: config.ai_tone,
           aiLanguage: config.ai_language,
-          isStartingConversation: true,
+          isStartingConversation: shouldStartNew,
+          previousMessages: conversationHistory,
         });
 
         content = generated.text;
@@ -622,4 +633,88 @@ async function incrementMediaUsage(
   mediaId: string
 ): Promise<void> {
   await supabase.rpc("increment_warming_media_usage", { media_id: mediaId });
+}
+
+interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+}
+
+async function getConversationHistory(
+  evolutionClient: EvolutionApiClient,
+  instanceName: string,
+  remoteNumber: string
+): Promise<ConversationMessage[]> {
+  try {
+    const remoteJid = remoteNumber + "@s.whatsapp.net";
+
+    const result = await evolutionClient.findMessages(instanceName, {
+      where: { key: { remoteJid } },
+      page: 1,
+      offset: 0,
+    });
+
+    if (!result.success || !result.data || result.data.length === 0) {
+      return [];
+    }
+
+    // Parse messages and convert to conversation format
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messages: ConversationMessage[] = result.data
+      .slice(0, 10) // Last 10 messages
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((msg: any) => {
+        const isFromMe = msg.key?.fromMe === true;
+        const content =
+          msg.message?.conversation ||
+          msg.message?.extendedTextMessage?.text ||
+          msg.message?.imageMessage?.caption ||
+          msg.message?.videoMessage?.caption ||
+          "";
+
+        // Skip non-text messages
+        if (!content) return null;
+
+        return {
+          role: isFromMe ? "assistant" : "user",
+          content,
+          timestamp: parseInt(msg.messageTimestamp) || 0,
+        } as ConversationMessage;
+      })
+      .filter((msg): msg is ConversationMessage => msg !== null)
+      .sort((a, b) => a.timestamp - b.timestamp); // Sort by time ascending
+
+    return messages;
+  } catch (error) {
+    console.error("Error fetching conversation history:", error);
+    return [];
+  }
+}
+
+function shouldStartNewConversation(history: ConversationMessage[]): boolean {
+  // Start new if no history
+  if (history.length === 0) {
+    return true;
+  }
+
+  // Get last message timestamp
+  const lastMessage = history[history.length - 1];
+  const lastMessageTime = lastMessage.timestamp * 1000; // Convert to ms
+  const now = Date.now();
+  const hoursSinceLastMessage = (now - lastMessageTime) / (1000 * 60 * 60);
+
+  // Start new conversation if last message was more than 6 hours ago
+  if (hoursSinceLastMessage > 6) {
+    return true;
+  }
+
+  // 20% chance to start new topic even if conversation is recent
+  // This adds variety to the conversations
+  if (Math.random() < 0.2) {
+    return true;
+  }
+
+  // Continue existing conversation
+  return false;
 }

@@ -28,6 +28,7 @@ export async function generateWarmingMessage(
 
   const language = options.language || "pt-BR";
   const isPortuguese = language.startsWith("pt");
+  const hasHistory = options.previousMessages && options.previousMessages.length > 0;
 
   let systemPrompt: string;
 
@@ -43,58 +44,116 @@ Write something positive, motivational or about daily life.
 Maximum 1 short sentence. Can use 1-2 emojis.
 Tone: ${options.tone}
 ${options.topics && options.topics.length > 0 ? `Possible topics: ${options.topics.join(", ")}` : ""}`;
-  } else {
+  } else if (options.isStarting) {
+    // Starting a new conversation
     systemPrompt = isPortuguese
-      ? `Você é um usuário brasileiro de WhatsApp tendo uma conversa casual.
-Responda de forma natural, breve e informal.
+      ? `Você é um brasileiro conversando no WhatsApp com um amigo.
+Inicie uma conversa casual e natural.
 Tom: ${options.tone}
-${options.topics && options.topics.length > 0 ? `Tópicos possíveis: ${options.topics.join(", ")}` : ""}
-Máximo 2 frases curtas. Use gírias e abreviações comuns brasileiras.
-Não use formatação markdown. Apenas texto simples.`
-      : `You are a WhatsApp user having a casual conversation.
-Respond naturally, briefly and informally.
+${options.topics && options.topics.length > 0 ? `Assuntos que vocês costumam conversar: ${options.topics.join(", ")}` : ""}
+
+Regras:
+- Máximo 2 frases curtas
+- Use gírias brasileiras naturais (eae, mano, blz, tmj, etc)
+- Pode perguntar algo ou comentar sobre o dia
+- NÃO use formatação markdown
+- NÃO seja repetitivo com cumprimentos genéricos
+- Varie entre: perguntar algo, comentar uma notícia, falar do dia, combinar algo`
+      : `You are chatting on WhatsApp with a friend.
+Start a casual, natural conversation.
 Tone: ${options.tone}
-${options.topics && options.topics.length > 0 ? `Possible topics: ${options.topics.join(", ")}` : ""}
-Maximum 2 short sentences. Use common slang and abbreviations.
-Don't use markdown formatting. Plain text only.`;
+${options.topics && options.topics.length > 0 ? `Topics you usually talk about: ${options.topics.join(", ")}` : ""}
+
+Rules:
+- Maximum 2 short sentences
+- Use natural slang
+- Can ask something or comment about the day
+- NO markdown formatting
+- DON'T be repetitive with generic greetings
+- Vary between: asking something, commenting news, talking about the day, making plans`;
+  } else {
+    // Continuing an existing conversation
+    systemPrompt = isPortuguese
+      ? `Você é um brasileiro conversando no WhatsApp com um amigo.
+Você está CONTINUANDO uma conversa existente.
+Tom: ${options.tone}
+${options.topics && options.topics.length > 0 ? `Assuntos que vocês costumam conversar: ${options.topics.join(", ")}` : ""}
+
+Regras IMPORTANTES:
+- Responda ao que a pessoa disse na última mensagem
+- Máximo 2 frases curtas
+- Use gírias brasileiras naturais
+- NÃO cumprimente de novo (a conversa já começou!)
+- NÃO pergunte "tudo bem?" ou similares
+- Pode concordar, discordar, perguntar mais, ou mudar de assunto naturalmente
+- Seja específico sobre o que foi dito
+- NÃO use formatação markdown`
+      : `You are chatting on WhatsApp with a friend.
+You are CONTINUING an existing conversation.
+Tone: ${options.tone}
+${options.topics && options.topics.length > 0 ? `Topics you usually talk about: ${options.topics.join(", ")}` : ""}
+
+IMPORTANT rules:
+- Respond to what the person said in their last message
+- Maximum 2 short sentences
+- Use natural slang
+- DON'T greet again (conversation already started!)
+- DON'T ask "how are you?" or similar
+- Can agree, disagree, ask more, or naturally change subject
+- Be specific about what was said
+- NO markdown formatting`;
   }
 
-  const messages: Anthropic.MessageParam[] = options.isStarting
-    ? [
-        {
-          role: "user",
-          content: isPortuguese
-            ? "Comece uma conversa casual de WhatsApp."
-            : "Start a casual WhatsApp conversation.",
-        },
-      ]
-    : options.previousMessages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
+  // Build messages array
+  let messages: Anthropic.MessageParam[] = [];
 
-  // Add a prompt if continuing conversation
-  if (!options.isStarting && messages.length > 0) {
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage.role === "assistant") {
-      messages.push({
+  if (options.isStarting || !hasHistory) {
+    // New conversation - just ask to start
+    messages = [
+      {
         role: "user",
         content: isPortuguese
-          ? "Continue a conversa de forma natural."
-          : "Continue the conversation naturally.",
-      });
-    }
+          ? "Mande uma mensagem iniciando conversa:"
+          : "Send a message starting the conversation:",
+      },
+    ];
+  } else {
+    // Convert previous messages to Anthropic format
+    // The history contains messages where:
+    // - "assistant" = messages I (the sender) sent
+    // - "user" = messages the other person sent
+    // But for the AI, we want it to BE the sender, so we need to flip the roles
+
+    const conversationContext = options.previousMessages
+      .slice(-6) // Last 6 messages for context
+      .map((m) => `${m.role === "assistant" ? "Eu" : "Amigo"}: ${m.content}`)
+      .join("\n");
+
+    messages = [
+      {
+        role: "user",
+        content: isPortuguese
+          ? `Histórico recente da conversa:\n${conversationContext}\n\nAgora responda como "Eu" continuando essa conversa:`
+          : `Recent conversation history:\n${conversationContext}\n\nNow respond as "Me" continuing this conversation:`,
+      },
+    ];
   }
 
   const response = await client.messages.create({
     model: "claude-3-haiku-20240307",
-    max_tokens: 100,
+    max_tokens: 150,
     system: systemPrompt,
     messages,
   });
 
-  const text =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  let text = response.content[0].type === "text" ? response.content[0].text : "";
+
+  // Clean up the response
+  text = text
+    .replace(/^(Eu|Me|I):\s*/i, "") // Remove "Eu:" or "Me:" prefix if present
+    .replace(/^["']|["']$/g, "") // Remove quotes
+    .trim();
+
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
 
@@ -104,7 +163,7 @@ Don't use markdown formatting. Plain text only.`;
   const costCents = costUSD * 100 * 5; // ~5 BRL per USD
 
   return {
-    text: text.trim(),
+    text,
     tokensUsed: inputTokens + outputTokens,
     costCents,
   };
