@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, User, Mail, Lock } from "lucide-react";
+import { Loader2, User, Mail, Lock, Upload, Camera } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -30,6 +30,8 @@ export default function ProfileSettingsPage() {
     newPassword: "",
     confirmPassword: "",
   });
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -83,6 +85,68 @@ export default function ProfileSettingsPage() {
       toast.error("Erro ao salvar perfil");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !profile) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione uma imagem");
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 5MB");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const avatarUrl = urlData.publicUrl;
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from("tenant_users")
+        .update({ avatar_url: avatarUrl })
+        .eq("user_id", profile.id);
+
+      if (updateError) throw updateError;
+
+      setFormData({ ...formData, avatar_url: avatarUrl });
+      toast.success("Foto de perfil atualizada!");
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast.error("Erro ao fazer upload da imagem");
+    } finally {
+      setUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -142,30 +206,60 @@ export default function ProfileSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-              {formData.avatar_url ? (
-                <img
-                  src={formData.avatar_url}
-                  alt="Avatar"
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <User className="h-8 w-8 text-primary" />
-              )}
-            </div>
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="avatar">URL do Avatar</Label>
-              <Input
-                id="avatar"
-                placeholder="https://exemplo.com/avatar.jpg"
-                value={formData.avatar_url}
-                onChange={(e) =>
-                  setFormData({ ...formData, avatar_url: e.target.value })
-                }
+            <div className="relative group">
+              <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-border">
+                {formData.avatar_url ? (
+                  <img
+                    src={formData.avatar_url}
+                    alt="Avatar"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <User className="h-10 w-10 text-primary" />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                {uploadingAvatar ? (
+                  <Loader2 className="h-6 w-6 text-white animate-spin" />
+                ) : (
+                  <Camera className="h-6 w-6 text-white" />
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
               />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium text-white mb-1">Foto de Perfil</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Clique na imagem para alterar. JPG, PNG ou GIF. Max 5MB.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+              >
+                {uploadingAvatar ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                Enviar Foto
+              </Button>
             </div>
           </div>
 

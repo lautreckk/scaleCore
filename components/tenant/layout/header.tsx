@@ -101,7 +101,7 @@ export function Header({ onMenuClick, user, tenant }: HeaderProps) {
                   <button
                     onClick={() => {
                       setShowDropdown(false);
-                      router.push("/settings/profile");
+                      router.push("/settings");
                     }}
                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-surface-elevated hover:text-white transition-colors"
                   >
