@@ -95,7 +95,29 @@ export async function PUT(
   }
 
   const body = await request.json();
-  const { instance_ids, ...configData } = body;
+  const { instance_ids } = body;
+
+  // Only allow valid config fields to be updated
+  const validFields = [
+    "name", "description", "status", "run_24h", "start_time", "end_time",
+    "days_of_week", "timezone", "text_messages_enabled", "text_messages_weight",
+    "audio_messages_enabled", "audio_messages_weight", "image_messages_enabled",
+    "image_messages_weight", "document_messages_enabled", "document_messages_weight",
+    "video_messages_enabled", "video_messages_weight", "status_posts_enabled",
+    "status_posts_weight", "status_views_enabled", "status_views_weight",
+    "reactions_enabled", "reactions_weight", "min_delay_between_actions",
+    "max_delay_between_actions", "min_typing_duration", "max_typing_duration",
+    "max_messages_per_day", "max_audio_per_day", "max_media_per_day",
+    "max_status_per_day", "max_reactions_per_day", "use_ai_conversations",
+    "ai_topics", "ai_tone", "ai_language"
+  ];
+
+  const configData: Record<string, unknown> = {};
+  for (const field of validFields) {
+    if (field in body) {
+      configData[field] = body[field];
+    }
+  }
 
   // Update config
   const { data: config, error: configError } = await supabase
