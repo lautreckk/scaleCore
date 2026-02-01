@@ -47,7 +47,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/login", "/register", "/forgot-password", "/auth/callback"];
+  const publicRoutes = ["/login", "/register", "/forgot-password", "/auth/callback", "/invite"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
   // Landing page is public (root route exactly)
@@ -63,8 +63,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users from auth pages to dashboard
-  if (user && isPublicRoute) {
+  // Redirect authenticated users from auth pages to dashboard (except invite page)
+  const isInvitePage = pathname.startsWith("/invite");
+  if (user && isPublicRoute && !isInvitePage) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
