@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
 import { DateSeparator } from "./date-separator";
+import { SystemMessage } from "./system-message";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -73,6 +74,14 @@ interface Chat {
   } | null;
 }
 
+interface Assignment {
+  id: string;
+  tenant_user_id: string;
+  user_name: string;
+  avatar_url: string | null;
+  assigned_at: string;
+}
+
 interface ChatWindowProps {
   chatId: string | null;
   onTogglePanel?: () => void;
@@ -85,6 +94,8 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const [loading, setLoading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loadingAssignment, setLoadingAssignment] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialLoadRef = useRef(true);
   const supabase = createClient();
@@ -162,6 +173,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const markAsRead = useCallback(async () => {
     if (!chat || !chat.whatsapp_instances) return;
 
+    // Update locally IMMEDIATELY
+    setChat(prev => prev ? { ...prev, unread_count: 0 } : null);
+
     try {
       await fetch("/api/whatsapp/chat/read", {
         method: "POST",
@@ -179,6 +193,75 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         .eq("id", chat.id);
     }
   }, [chat, supabase]);
+
+  // Load assignments for the chat
+  const loadAssignments = useCallback(async () => {
+    if (!chatId) return;
+
+    try {
+      const response = await fetch(`/api/chats/${chatId}/assign`);
+      if (response.ok) {
+        const data = await response.json();
+        setAssignments(data.assignments || []);
+      }
+    } catch (error) {
+      console.error("Error loading assignments:", error);
+    }
+  }, [chatId]);
+
+  // Handle attend (assign current user to chat)
+  const handleAttend = async () => {
+    if (!chatId || loadingAssignment) return;
+
+    setLoadingAssignment(true);
+    try {
+      const response = await fetch(`/api/chats/${chatId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to assign");
+      }
+
+      const data = await response.json();
+      setAssignments(data.assignments || []);
+      loadMessages(); // Reload to show system message
+      toast.success("Você está atendendo esta conversa");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao atender");
+    } finally {
+      setLoadingAssignment(false);
+    }
+  };
+
+  // Handle leave (remove assignment)
+  const handleLeaveChat = async () => {
+    if (!chatId || loadingAssignment) return;
+
+    setLoadingAssignment(true);
+    try {
+      const response = await fetch(`/api/chats/${chatId}/assign`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to leave");
+      }
+
+      const data = await response.json();
+      setAssignments(data.assignments || []);
+      loadMessages(); // Reload to show system message
+      toast.success("Você saiu do atendimento");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao sair");
+    } finally {
+      setLoadingAssignment(false);
+    }
+  };
 
   const loadChat = useCallback(async () => {
     if (!chatId) return;
@@ -268,15 +351,17 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
     if (!chatId) {
       setChat(null);
       setMessages([]);
+      setAssignments([]);
       return;
     }
 
     setLoading(true);
     loadChat();
     loadMessages();
+    loadAssignments();
 
     // Set up real-time subscription for messages
-    const channel = supabase
+    const messagesChannel = supabase
       .channel(`messages-${chatId}`)
       .on(
         "postgres_changes",
@@ -295,10 +380,48 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         console.log("Message subscription status:", status);
       });
 
+    // Set up real-time subscription for chat updates (unread_count, etc.)
+    const chatChannel = supabase
+      .channel(`chat-${chatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chats",
+          filter: `id=eq.${chatId}`,
+        },
+        (payload) => {
+          console.log("Chat realtime update:", payload);
+          setChat(prev => prev ? { ...prev, ...payload.new } : null);
+        }
+      )
+      .subscribe();
+
+    // Set up real-time subscription for assignments
+    const assignmentsChannel = supabase
+      .channel(`assignments-${chatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_assignments",
+          filter: `chat_id=eq.${chatId}`,
+        },
+        () => {
+          loadAssignments();
+          loadMessages(); // Reload to show system message
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(chatChannel);
+      supabase.removeChannel(assignmentsChannel);
     };
-  }, [chatId, loadChat, loadMessages, supabase]);
+  }, [chatId, loadChat, loadMessages, loadAssignments, supabase]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -485,27 +608,6 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
     }
   };
 
-  const toggleAssign = async () => {
-    if (!chat) return;
-
-    const isAssignedToMe = chat.assigned_to === currentUserId;
-    const newAssignedTo = isAssignedToMe ? null : currentUserId;
-
-    try {
-      const { error } = await supabase
-        .from("chats")
-        .update({ assigned_to: newAssignedTo })
-        .eq("id", chat.id);
-
-      if (error) throw error;
-
-      toast.success(isAssignedToMe ? "Conversa desatribuída" : "Conversa atribuída a você");
-      setChat({ ...chat, assigned_to: newAssignedTo });
-    } catch (error) {
-      toast.error("Erro ao atualizar atribuição");
-    }
-  };
-
   const toggleStatus = async () => {
     if (!chat) return;
 
@@ -652,6 +754,10 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const isGroup = chat.remote_jid.endsWith("@g.us");
   const displayName = chat.contact_name || chat.leads?.name || formatPhoneNumber(chat.remote_jid);
 
+  // Check if current user is assigned
+  const isAssigned = assignments.some(a => a.tenant_user_id === currentUserId);
+  const canSendMessages = isConnected && assignments.length > 0 && isAssigned;
+
   // Helper to determine if date separator should be shown
   const shouldShowDateSeparator = (current: Message, previous?: Message) => {
     if (!previous) return true;
@@ -700,6 +806,27 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
                   Grupo
                 </Badge>
+              )}
+              {/* Show assigned attendants avatars */}
+              {assignments.length > 0 && (
+                <div className="flex items-center gap-1.5 ml-1">
+                  <span className="text-[10px] text-muted-foreground hidden sm:inline">Atendendo:</span>
+                  <div className="flex -space-x-1.5">
+                    {assignments.map((a) => (
+                      <div
+                        key={a.id}
+                        className="h-5 w-5 rounded-full border-2 border-background bg-primary flex items-center justify-center text-[9px] text-white font-medium"
+                        title={a.user_name}
+                      >
+                        {a.avatar_url ? (
+                          <img src={a.avatar_url} alt={a.user_name} className="h-full w-full rounded-full object-cover" />
+                        ) : (
+                          a.user_name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-2">
@@ -751,19 +878,17 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={toggleAssign}>
-                {chat.assigned_to === currentUserId ? (
-                  <>
-                    <UserMinus className="h-4 w-4 mr-2" />
-                    Desatribuir de mim
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Atribuir a mim
-                  </>
-                )}
-              </DropdownMenuItem>
+              {isAssigned ? (
+                <DropdownMenuItem onClick={handleLeaveChat} disabled={loadingAssignment}>
+                  <UserMinus className="h-4 w-4 mr-2" />
+                  Sair do atendimento
+                </DropdownMenuItem>
+              ) : assignments.length < 3 ? (
+                <DropdownMenuItem onClick={handleAttend} disabled={loadingAssignment}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {assignments.length === 0 ? "Atender conversa" : "Participar do atendimento"}
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem onClick={toggleStatus}>
                 {chat.status === "closed" ? (
                   <>
@@ -828,8 +953,24 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
             ) : (
               <div className="space-y-3">
                 {messages.map((message, index) => {
-                  const isGroup = chat?.remote_jid?.endsWith("@g.us") ?? false;
+                  const isGroupChat = chat?.remote_jid?.endsWith("@g.us") ?? false;
                   const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
+
+                  // Render system messages differently
+                  if (message.message_type === "system") {
+                    return (
+                      <React.Fragment key={message.id}>
+                        {showDateSeparator && (
+                          <DateSeparator date={message.timestamp} />
+                        )}
+                        <SystemMessage
+                          content={message.content || ""}
+                          timestamp={message.timestamp}
+                        />
+                      </React.Fragment>
+                    );
+                  }
+
                   return (
                     <React.Fragment key={message.id}>
                       {showDateSeparator && (
@@ -846,7 +987,7 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
                         onDelete={message.from_me && !message.isOptimistic ? deleteMessage : undefined}
                         onEdit={message.from_me && message.message_type === "text" && !message.isOptimistic ? editMessage : undefined}
                         participantName={message.participant_name}
-                        isGroup={isGroup}
+                        isGroup={isGroupChat}
                       />
                     </React.Fragment>
                   );
@@ -868,12 +1009,52 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
             </Link>
           </div>
         </div>
+      ) : assignments.length === 0 ? (
+        // No one assigned - show attend button
+        <div className="p-4 border-t border-border bg-card">
+          <Button
+            onClick={handleAttend}
+            className="w-full"
+            size="lg"
+            disabled={loadingAssignment}
+          >
+            {loadingAssignment ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <UserPlus className="h-4 w-4 mr-2" />
+            )}
+            Atender Conversa
+          </Button>
+        </div>
+      ) : !isAssigned ? (
+        // Others assigned but not me - option to join
+        <div className="p-4 border-t border-border bg-card">
+          <div className="text-center text-sm text-muted-foreground mb-2">
+            Este chat está sendo atendido por outros usuários
+          </div>
+          {assignments.length < 3 && (
+            <Button
+              onClick={handleAttend}
+              variant="outline"
+              className="w-full"
+              disabled={loadingAssignment}
+            >
+              {loadingAssignment ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4 mr-2" />
+              )}
+              Participar do Atendimento
+            </Button>
+          )}
+        </div>
       ) : (
+        // I'm assigned - show normal input
         <MessageInput
           onSendText={sendTextMessage}
           onSendMedia={sendMediaMessage}
           onTyping={handleTyping}
-          disabled={!isConnected}
+          disabled={!canSendMessages}
         />
       )}
     </div>
