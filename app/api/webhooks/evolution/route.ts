@@ -487,6 +487,13 @@ export async function POST(request: NextRequest) {
 
         // For group messages, extract participant info
         const isGroup = remoteJid.endsWith("@g.us");
+
+        // Skip group messages - we don't want groups in the chat
+        if (isGroup) {
+          console.log(`[WEBHOOK] Skipping group message from: ${remoteJid}`);
+          break;
+        }
+
         const participantJid = isGroup ? key.participant : null;
         const participantName = isGroup && !fromMe ? messageData.pushName : null;
 

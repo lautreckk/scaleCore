@@ -450,11 +450,11 @@ export function LeadSelector({
                 <div className="space-y-2">
                   <Label>Origem</Label>
                   <Select
-                    value={filterCriteria.sources?.[0] || ""}
+                    value={filterCriteria.sources?.[0] || "__all__"}
                     onValueChange={(value) =>
                       onFilterChange({
                         ...filterCriteria,
-                        sources: value ? [value] : undefined,
+                        sources: value && value !== "__all__" ? [value] : undefined,
                       })
                     }
                   >
@@ -462,7 +462,7 @@ export function LeadSelector({
                       <SelectValue placeholder="Todas as origens" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todas</SelectItem>
+                      <SelectItem value="__all__">Todas</SelectItem>
                       {availableSources.map((source) => (
                         <SelectItem key={source} value={source}>
                           {source}
@@ -476,11 +476,11 @@ export function LeadSelector({
                 <div className="space-y-2">
                   <Label>Kanban</Label>
                   <Select
-                    value={filterCriteria.kanban_board_id || ""}
+                    value={filterCriteria.kanban_board_id || "__none__"}
                     onValueChange={(value) =>
                       onFilterChange({
                         ...filterCriteria,
-                        kanban_board_id: value || undefined,
+                        kanban_board_id: value && value !== "__none__" ? value : undefined,
                         kanban_stage_id: undefined,
                       })
                     }
@@ -489,7 +489,7 @@ export function LeadSelector({
                       <SelectValue placeholder="Selecione um quadro" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="__none__">Nenhum</SelectItem>
                       {kanbanBoards.map((board) => (
                         <SelectItem key={board.id} value={board.id}>
                           {board.name}
@@ -504,11 +504,11 @@ export function LeadSelector({
                   <div className="space-y-2">
                     <Label>Etapa</Label>
                     <Select
-                      value={filterCriteria.kanban_stage_id || ""}
+                      value={filterCriteria.kanban_stage_id || "__all__"}
                       onValueChange={(value) =>
                         onFilterChange({
                           ...filterCriteria,
-                          kanban_stage_id: value || undefined,
+                          kanban_stage_id: value && value !== "__all__" ? value : undefined,
                         })
                       }
                     >
@@ -516,7 +516,7 @@ export function LeadSelector({
                         <SelectValue placeholder="Todas as etapas" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Todas</SelectItem>
+                        <SelectItem value="__all__">Todas</SelectItem>
                         {kanbanStages.map((stage) => (
                           <SelectItem key={stage.id} value={stage.id}>
                             {stage.name}
@@ -531,11 +531,11 @@ export function LeadSelector({
                 <div className="space-y-2">
                   <Label>Atribuído a</Label>
                   <Select
-                    value={filterCriteria.assigned_to || ""}
+                    value={filterCriteria.assigned_to || "__any__"}
                     onValueChange={(value) =>
                       onFilterChange({
                         ...filterCriteria,
-                        assigned_to: value || undefined,
+                        assigned_to: value && value !== "__any__" ? value : undefined,
                       })
                     }
                   >
@@ -543,7 +543,7 @@ export function LeadSelector({
                       <SelectValue placeholder="Qualquer pessoa" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Qualquer</SelectItem>
+                      <SelectItem value="__any__">Qualquer</SelectItem>
                       {teamMembers.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.name}
