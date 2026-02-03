@@ -382,13 +382,18 @@ async function executeAction(
           throw new Error(`Failed to find messages for reaction: ${messagesResult.error || 'Unknown error'}`);
         }
 
-        if (!messagesResult.data || messagesResult.data.length === 0) {
+        // API returns { messages: { records: [...] } } format
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const messagesData = messagesResult.data as any;
+        const records = messagesData?.messages?.records || messagesData || [];
+
+        if (!records || records.length === 0) {
           throw new Error("No messages found to react to");
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const recentMessage = messagesResult.data[0] as any;
-        if (!recentMessage.key) {
+        const recentMessage = records[0] as any;
+        if (!recentMessage?.key) {
           throw new Error("Recent message has no key for reaction");
         }
 
@@ -702,13 +707,22 @@ async function getConversationHistory(
       offset: 0,
     });
 
-    if (!result.success || !result.data || result.data.length === 0) {
+    if (!result.success || !result.data) {
+      return [];
+    }
+
+    // API returns { messages: { records: [...] } } format
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messagesData = result.data as any;
+    const records = messagesData?.messages?.records || messagesData || [];
+
+    if (!records || records.length === 0) {
       return [];
     }
 
     // Parse messages and convert to conversation format
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const messages: ConversationMessage[] = result.data
+    const messages: ConversationMessage[] = records
       .slice(0, 10) // Last 10 messages
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((msg: any) => {
@@ -729,8 +743,8 @@ async function getConversationHistory(
           timestamp: parseInt(msg.messageTimestamp) || 0,
         } as ConversationMessage;
       })
-      .filter((msg): msg is ConversationMessage => msg !== null)
-      .sort((a, b) => a.timestamp - b.timestamp); // Sort by time ascending
+      .filter((msg: ConversationMessage | null): msg is ConversationMessage => msg !== null)
+      .sort((a: ConversationMessage, b: ConversationMessage) => a.timestamp - b.timestamp); // Sort by time ascending
 
     return messages;
   } catch (error) {
