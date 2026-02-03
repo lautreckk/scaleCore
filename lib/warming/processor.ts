@@ -213,7 +213,9 @@ async function executeAction(
 ): Promise<void> {
   const senderInstance = sender.whatsapp_instance;
   const receiverInstance = receiver.whatsapp_instance;
-  const receiverNumber = receiverInstance.phone_number?.replace(/\D/g, "") || "";
+  // Remove device suffix (e.g., "554396080810:6" -> "554396080810") before cleaning
+  const rawNumber = receiverInstance.phone_number?.split(":")[0] || "";
+  const receiverNumber = rawNumber.replace(/\D/g, "");
 
   if (!receiverNumber) {
     throw new Error("Receiver has no phone number");
