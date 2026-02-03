@@ -1,5 +1,6 @@
 import { createClient as createAdminClient, SupabaseClient } from "@supabase/supabase-js";
 import { createEvolutionClient, EvolutionApiClient } from "@/lib/evolution/client";
+import { decrypt } from "@/lib/encryption";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Database = any;
@@ -269,7 +270,11 @@ async function executeAction(
           text: content,
         });
 
-        if (result.success && result.data) {
+        if (!result.success) {
+          throw new Error(`Failed to send text message: ${result.error || 'Unknown error'}`);
+        }
+
+        if (result.data) {
           messageId = result.data.key.id;
         }
         break;
@@ -300,7 +305,11 @@ async function executeAction(
           media: audioMedia.file_url,
         });
 
-        if (audioResult.success && audioResult.data) {
+        if (!audioResult.success) {
+          throw new Error(`Failed to send audio: ${audioResult.error || 'Unknown error'}`);
+        }
+
+        if (audioResult.data) {
           messageId = audioResult.data.key?.id || null;
         }
 
@@ -326,13 +335,17 @@ async function executeAction(
         aiTokensUsed = statusGenerated.tokensUsed || null;
         aiCostCents = statusGenerated.costCents || null;
 
-        await evolutionClient.sendStatus(senderInstance.instance_name, {
+        const statusPostResult = await evolutionClient.sendStatus(senderInstance.instance_name, {
           type: "text",
           content,
           backgroundColor: getRandomStatusColor(),
           font: Math.ceil(Math.random() * 5) as 1 | 2 | 3 | 4 | 5,
           allContacts: true,
         });
+
+        if (!statusPostResult.success) {
+          throw new Error(`Failed to post status: ${statusPostResult.error || 'Unknown error'}`);
+        }
         break;
       }
 
@@ -342,6 +355,10 @@ async function executeAction(
           senderInstance.instance_name,
           receiverNumber + "@s.whatsapp.net"
         );
+
+        if (!statusResult.success) {
+          throw new Error(`Failed to view status: ${statusResult.error || 'Unknown error'}`);
+        }
 
         content = `Viewed ${statusResult.data?.length || 0} status messages`;
         break;
@@ -359,18 +376,31 @@ async function executeAction(
           }
         );
 
-        if (messagesResult.data && messagesResult.data.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const recentMessage = messagesResult.data[0] as any;
-          if (recentMessage.key) {
-            const reaction = getRandomReaction();
-            await evolutionClient.sendReaction(senderInstance.instance_name, {
-              key: recentMessage.key,
-              reaction,
-            });
-            content = reaction;
-          }
+        if (!messagesResult.success) {
+          throw new Error(`Failed to find messages for reaction: ${messagesResult.error || 'Unknown error'}`);
         }
+
+        if (!messagesResult.data || messagesResult.data.length === 0) {
+          throw new Error("No messages found to react to");
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recentMessage = messagesResult.data[0] as any;
+        if (!recentMessage.key) {
+          throw new Error("Recent message has no key for reaction");
+        }
+
+        const reaction = getRandomReaction();
+        const reactionResult = await evolutionClient.sendReaction(senderInstance.instance_name, {
+          key: recentMessage.key,
+          reaction,
+        });
+
+        if (!reactionResult.success) {
+          throw new Error(`Failed to send reaction: ${reactionResult.error || 'Unknown error'}`);
+        }
+
+        content = reaction;
         break;
       }
 
@@ -398,7 +428,11 @@ async function executeAction(
           media: imageMedia.file_url,
         });
 
-        if (imageResult.success && imageResult.data) {
+        if (!imageResult.success) {
+          throw new Error(`Failed to send image: ${imageResult.error || 'Unknown error'}`);
+        }
+
+        if (imageResult.data) {
           messageId = imageResult.data.key?.id || null;
         }
 
@@ -423,7 +457,11 @@ async function executeAction(
           fileName: docMedia.name,
         });
 
-        if (docResult.success && docResult.data) {
+        if (!docResult.success) {
+          throw new Error(`Failed to send document: ${docResult.error || 'Unknown error'}`);
+        }
+
+        if (docResult.data) {
           messageId = docResult.data.key?.id || null;
         }
 
@@ -456,7 +494,11 @@ async function executeAction(
           media: videoMedia.file_url,
         });
 
-        if (videoResult.success && videoResult.data) {
+        if (!videoResult.success) {
+          throw new Error(`Failed to send video: ${videoResult.error || 'Unknown error'}`);
+        }
+
+        if (videoResult.data) {
           messageId = videoResult.data.key?.id || null;
         }
 
@@ -591,9 +633,12 @@ async function getEvolutionClient(
     return null;
   }
 
+  // Decrypt the API key before using
+  const apiKey = decrypt(evolutionConfig.api_key_encrypted);
+
   return createEvolutionClient({
     url: evolutionConfig.url,
-    apiKey: evolutionConfig.api_key_encrypted, // In production, decrypt this
+    apiKey,
   });
 }
 
