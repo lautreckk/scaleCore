@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Flame,
   CheckSquare,
+  CheckCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +64,9 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
   const [inboxOpen, setInboxOpen] = useState(false);
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const supabase = createClient();
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-expand inbox when on chats page
   useEffect(() => {
@@ -72,9 +75,9 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
     }
   }, [pathname]);
 
-  // Load WhatsApp instances with unread counts
+  // Resolve tenantId once
   useEffect(() => {
-    const loadInstances = async () => {
+    const resolveTenant = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -84,46 +87,67 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
         .eq("user_id", user.id)
         .single();
 
-      if (!tenantUser) return;
-
-      const tenantId = tenantUser.tenant_id;
-
-      // Get all WhatsApp instances
-      const { data: instancesData } = await supabase
-        .from("whatsapp_instances")
-        .select("id, name, color")
-        .eq("tenant_id", tenantId)
-        .order("name");
-
-      if (!instancesData) return;
-
-      // Get unread counts per instance
-      const { data: unreadChats } = await supabase
-        .from("chats")
-        .select("instance_id, unread_count")
-        .eq("tenant_id", tenantId)
-        .eq("archived", false)
-        .gt("unread_count", 0);
-
-      const countByInstance = (unreadChats || []).reduce((acc, chat) => {
-        if (chat.instance_id) {
-          acc[chat.instance_id] = (acc[chat.instance_id] || 0) + chat.unread_count;
-        }
-        return acc;
-      }, {} as Record<string, number>);
-
-      const instancesWithUnread: WhatsAppInstance[] = instancesData.map((instance) => ({
-        ...instance,
-        unreadCount: countByInstance[instance.id] || 0,
-      }));
-
-      setInstances(instancesWithUnread);
-      setTotalUnread(instancesWithUnread.reduce((sum, i) => sum + i.unreadCount, 0));
+      if (tenantUser) {
+        setTenantId(tenantUser.tenant_id);
+      }
     };
+    resolveTenant();
+  }, [supabase]);
+
+  // Load instances + unread counts (uses cached tenantId)
+  const loadInstances = useCallback(async () => {
+    if (!tenantId) return;
+
+    const { data: instancesData } = await supabase
+      .from("whatsapp_instances")
+      .select("id, name, color")
+      .eq("tenant_id", tenantId)
+      .order("name");
+
+    if (!instancesData) return;
+
+    const { data: unreadChats } = await supabase
+      .from("chats")
+      .select("instance_id, unread_count")
+      .eq("tenant_id", tenantId)
+      .eq("archived", false)
+      .gt("unread_count", 0);
+
+    const countByInstance = (unreadChats || []).reduce((acc, chat) => {
+      if (chat.instance_id) {
+        acc[chat.instance_id] = (acc[chat.instance_id] || 0) + chat.unread_count;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const instancesWithUnread: WhatsAppInstance[] = instancesData.map((instance) => ({
+      ...instance,
+      unreadCount: countByInstance[instance.id] || 0,
+    }));
+
+    setInstances(instancesWithUnread);
+    setTotalUnread(instancesWithUnread.reduce((sum, i) => sum + i.unreadCount, 0));
+  }, [tenantId, supabase]);
+
+  // Mark all chats of an instance as read
+  const markInstanceAsRead = useCallback(async (instanceId: string) => {
+    if (!tenantId) return;
+
+    await supabase
+      .from("chats")
+      .update({ unread_count: 0 })
+      .eq("instance_id", instanceId)
+      .gt("unread_count", 0);
+
+    loadInstances();
+  }, [tenantId, supabase, loadInstances]);
+
+  // Initial load + realtime subscription (only when tenantId is ready)
+  useEffect(() => {
+    if (!tenantId) return;
 
     loadInstances();
 
-    // Set up real-time subscription for chat updates
     const channel = supabase
       .channel("sidebar-inbox-counts")
       .on(
@@ -132,17 +156,27 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
           event: "*",
           schema: "public",
           table: "chats",
+          filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
-          loadInstances();
+          // Debounce realtime refreshes
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+          }
+          debounceTimerRef.current = setTimeout(() => {
+            loadInstances();
+          }, 500);
         }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
     };
-  }, [supabase]);
+  }, [tenantId, supabase, loadInstances]);
 
   const isActiveRoute = (href: string) => {
     if (pathname === href) return true;
@@ -286,30 +320,46 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
                       const isActive = currentInstanceId === instance.id;
 
                       return (
-                        <Link
-                          key={instance.id}
-                          href={`/chats?instance=${instance.id}`}
-                          onClick={onClose}
-                          className={cn(
-                            "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
-                            isActive
-                              ? "bg-primary/20 text-white"
-                              : "text-muted-foreground hover:bg-surface-elevated hover:text-white"
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-3 w-3 rounded-full"
-                              style={{ backgroundColor: instance.color || "#22c55e" }}
-                            />
-                            <span className="truncate">{instance.name}</span>
-                          </div>
-                          {instance.unreadCount > 0 && (
-                            <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
-                              {instance.unreadCount > 99 ? "99+" : instance.unreadCount}
-                            </Badge>
-                          )}
-                        </Link>
+                        <div key={instance.id} className="group relative">
+                          <Link
+                            href={`/chats?instance=${instance.id}`}
+                            onClick={onClose}
+                            className={cn(
+                              "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
+                              isActive
+                                ? "bg-primary/20 text-white"
+                                : "text-muted-foreground hover:bg-surface-elevated hover:text-white"
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: instance.color || "#22c55e" }}
+                              />
+                              <span className="truncate">{instance.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {instance.unreadCount > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    markInstanceAsRead(instance.id);
+                                  }}
+                                  className="hidden group-hover:flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-white"
+                                  title="Marcar todas como lidas"
+                                >
+                                  <CheckCheck className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {instance.unreadCount > 0 && (
+                                <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
+                                  {instance.unreadCount > 99 ? "99+" : instance.unreadCount}
+                                </Badge>
+                              )}
+                            </div>
+                          </Link>
+                        </div>
                       );
                     })}
                   </CollapsibleContent>

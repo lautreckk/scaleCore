@@ -33,16 +33,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Always update local database first (before trying Evolution API)
+    await supabase
+      .from("chats")
+      .update({ unread_count: 0 })
+      .eq("id", chatId);
+
     const clientData = await getEvolutionClientByInstanceName(
       instanceName,
       tenantUser.tenant_id
     );
 
     if (!clientData) {
-      return NextResponse.json(
-        { error: "Instance not found" },
-        { status: 404 }
-      );
+      // Instance not found but DB already updated
+      return NextResponse.json({ success: true });
     }
 
     const { client } = clientData;
@@ -76,18 +80,10 @@ export async function POST(request: NextRequest) {
 
       if (!result.success) {
         console.error("Failed to mark messages as read in WhatsApp:", result.error);
-        // Don't fail - still update local DB
+        // Don't fail - local DB already updated
       }
-    }
 
-    // Update local database
-    await supabase
-      .from("chats")
-      .update({ unread_count: 0 })
-      .eq("id", chatId);
-
-    // Update message statuses
-    if (messagesToMark && messagesToMark.length > 0) {
+      // Update message statuses
       const messageIds = messagesToMark.map((m: { id: string }) => m.id);
       await supabase
         .from("messages")

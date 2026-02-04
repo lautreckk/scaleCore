@@ -15,6 +15,7 @@ export interface KanbanCardItem {
   contact_name?: string | null;
   profile_picture_url?: string | null;
   last_message?: string | null;
+  last_message_type?: string | null;
   last_message_at?: string | null;
   unread_count?: number;
   stage_id?: string | null;
@@ -58,8 +59,12 @@ export function KanbanCard({ item, isDragging, onClick }: KanbanCardProps) {
     ? item.contact_name || formatPhoneNumber(item.remote_jid || "")
     : item.name || "Sem nome";
 
+  const MEDIA_LABELS: Record<string, string> = {
+    audio: "[Audio]", image: "[Imagem]", video: "[Video]",
+    document: "[Documento]", sticker: "[Sticker]",
+  };
   const subtitle = isChat
-    ? item.last_message || "Sem mensagens"
+    ? item.last_message || (item.last_message_type && MEDIA_LABELS[item.last_message_type]) || "Sem mensagens"
     : item.email || item.phone || "";
 
   const timestamp = isChat

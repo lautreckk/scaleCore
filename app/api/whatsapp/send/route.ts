@@ -128,13 +128,17 @@ export async function POST(request: NextRequest) {
 
       if (!chat) {
         // Create new chat
+        const sentMessageType = mediaUrl ? mediaType : "text";
+        const sentPreview = mediaUrl ? getMediaPreview(mediaType) : message?.substring(0, 100);
         const { data: newChat } = await supabase
           .from("chats")
           .insert({
             tenant_id: tenantUser.tenant_id,
             instance_id: instance.id,
             remote_jid: remoteJid,
-            last_message: mediaUrl ? getMediaPreview(mediaType) : message?.substring(0, 100),
+            last_message: sentPreview,
+            last_message_type: sentMessageType,
+            last_message_from_me: true,
             last_message_at: new Date().toISOString(),
             unread_count: 0,
           })
@@ -143,10 +147,14 @@ export async function POST(request: NextRequest) {
         chat = newChat;
       } else {
         // Update chat
+        const sentMessageType = mediaUrl ? mediaType : "text";
+        const sentPreview = mediaUrl ? getMediaPreview(mediaType) : message?.substring(0, 100);
         await supabase
           .from("chats")
           .update({
-            last_message: mediaUrl ? getMediaPreview(mediaType) : message?.substring(0, 100),
+            last_message: sentPreview,
+            last_message_type: sentMessageType,
+            last_message_from_me: true,
             last_message_at: new Date().toISOString(),
             unread_count: 0,
           })

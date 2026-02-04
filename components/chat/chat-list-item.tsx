@@ -4,12 +4,22 @@ import { useState } from "react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { CheckCircle, UserCircle, Users } from "lucide-react";
 
+const MEDIA_TYPE_LABELS: Record<string, string> = {
+  audio: "[Audio]",
+  image: "[Imagem]",
+  video: "[Video]",
+  document: "[Documento]",
+  sticker: "[Sticker]",
+};
+
 interface ChatListItemProps {
   id: string;
   contactName: string | null;
   profilePictureUrl: string | null;
   remoteJid: string;
   lastMessage: string | null;
+  lastMessageType: string | null;
+  lastMessageFromMe: boolean | null;
   lastMessageAt: string | null;
   unreadCount: number;
   instanceName: string | null;
@@ -26,6 +36,8 @@ export function ChatListItem({
   profilePictureUrl,
   remoteJid,
   lastMessage,
+  lastMessageType,
+  lastMessageFromMe,
   lastMessageAt,
   unreadCount,
   instanceName,
@@ -129,7 +141,12 @@ export function ChatListItem({
               </span>
             )}
             <span className="text-sm text-muted-foreground truncate">
-              {lastMessage || "Sem mensagens"}
+              {(lastMessage || (lastMessageType && MEDIA_TYPE_LABELS[lastMessageType])) ? (
+                <>
+                  {lastMessageFromMe && <span className="text-muted-foreground/80">Você: </span>}
+                  {lastMessage || MEDIA_TYPE_LABELS[lastMessageType!]}
+                </>
+              ) : "Sem mensagens"}
             </span>
           </div>
           {unreadCount > 0 && (

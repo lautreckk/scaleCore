@@ -258,6 +258,7 @@ export type Database = {
           id: string
           instance_id: string | null
           last_message: string | null
+          last_message_from_me: boolean | null
           last_message_at: string | null
           lead_id: string | null
           remote_jid: string
@@ -273,6 +274,7 @@ export type Database = {
           id?: string
           instance_id?: string | null
           last_message?: string | null
+          last_message_from_me?: boolean | null
           last_message_at?: string | null
           lead_id?: string | null
           remote_jid: string
@@ -288,6 +290,7 @@ export type Database = {
           id?: string
           instance_id?: string | null
           last_message?: string | null
+          last_message_from_me?: boolean | null
           last_message_at?: string | null
           lead_id?: string | null
           remote_jid?: string

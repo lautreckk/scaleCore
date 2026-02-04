@@ -17,6 +17,7 @@ import {
   Clock,
   User,
   CheckCircle,
+  CheckCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,8 @@ interface Chat {
   contact_name: string | null;
   profile_picture_url: string | null;
   last_message: string | null;
+  last_message_type: string | null;
+  last_message_from_me: boolean | null;
   last_message_at: string | null;
   unread_count: number;
   archived: boolean;
@@ -244,6 +247,8 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
         contact_name,
         profile_picture_url,
         last_message,
+        last_message_type,
+        last_message_from_me,
         last_message_at,
         unread_count,
         archived,
@@ -379,6 +384,37 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
 
   const totalUnread = instancesWithUnread.reduce((sum, instance) => sum + instance.unreadCount, 0);
 
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+
+  const markAllAsRead = useCallback(async () => {
+    if (!tenantId || markingAllRead) return;
+
+    setMarkingAllRead(true);
+    try {
+      let query = supabase
+        .from("chats")
+        .update({ unread_count: 0 })
+        .eq("tenant_id", tenantId)
+        .eq("archived", false)
+        .gt("unread_count", 0);
+
+      if (selectedInstanceId) {
+        query = query.eq("instance_id", selectedInstanceId);
+      }
+
+      await query;
+
+      // Reload chat list and unread counts
+      loadChats();
+      loadUnreadCounts();
+      loadTabCounts();
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    } finally {
+      setMarkingAllRead(false);
+    }
+  }, [tenantId, selectedInstanceId, markingAllRead, supabase, loadChats, loadUnreadCounts, loadTabCounts]);
+
   const getEmptyMessage = () => {
     if (search) return "Nenhuma conversa encontrada";
     switch (activeTab) {
@@ -397,11 +433,29 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">Conversas</h2>
-          {totalUnread > 0 && (
-            <span className="h-6 min-w-[24px] rounded-full bg-primary text-white text-xs font-medium flex items-center justify-center px-2">
-              {totalUnread > 99 ? "99+" : totalUnread}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {totalUnread > 0 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-white"
+                  onClick={markAllAsRead}
+                  disabled={markingAllRead}
+                  title="Marcar todas como lidas"
+                >
+                  {markingAllRead ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-4 w-4" />
+                  )}
+                </Button>
+                <span className="h-6 min-w-[24px] rounded-full bg-primary text-white text-xs font-medium flex items-center justify-center px-2">
+                  {totalUnread > 99 ? "99+" : totalUnread}
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -473,6 +527,8 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
                 profilePictureUrl={chat.profile_picture_url}
                 remoteJid={chat.remote_jid}
                 lastMessage={chat.last_message}
+                lastMessageType={chat.last_message_type}
+                lastMessageFromMe={chat.last_message_from_me}
                 lastMessageAt={chat.last_message_at}
                 unreadCount={chat.unread_count}
                 instanceName={chat.whatsapp_instances?.name || null}

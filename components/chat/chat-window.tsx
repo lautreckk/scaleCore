@@ -98,6 +98,8 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
   const [loadingAssignment, setLoadingAssignment] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialLoadRef = useRef(true);
+  const activeChatIdRef = useRef<string | null>(chatId);
+  const instanceNameRef = useRef<string | null>(null);
   const supabase = createClient();
 
   const scrollToBottom = useCallback((instant = false) => {
@@ -171,28 +173,39 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
 
   // Mark messages as read via API
   const markAsRead = useCallback(async () => {
-    if (!chat || !chat.whatsapp_instances) return;
+    if (!chatId || !instanceNameRef.current) return;
+
+    const currentChatId = chatId;
+    const currentInstanceName = instanceNameRef.current;
 
     // Update locally IMMEDIATELY
     setChat(prev => prev ? { ...prev, unread_count: 0 } : null);
 
     try {
-      await fetch("/api/whatsapp/chat/read", {
+      const response = await fetch("/api/whatsapp/chat/read", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          instanceName: chat.whatsapp_instances.instance_name,
-          chatId: chat.id,
+          instanceName: currentInstanceName,
+          chatId: currentChatId,
         }),
       });
+
+      if (!response.ok) {
+        // API failed - update DB directly as fallback
+        await supabase
+          .from("chats")
+          .update({ unread_count: 0 })
+          .eq("id", currentChatId);
+      }
     } catch (error) {
-      // Fallback to local update only
+      // Network error - update DB directly as fallback
       await supabase
         .from("chats")
         .update({ unread_count: 0 })
-        .eq("id", chat.id);
+        .eq("id", currentChatId);
     }
-  }, [chat, supabase]);
+  }, [chatId, supabase]);
 
   // Load assignments for the chat
   const loadAssignments = useCallback(async () => {
@@ -305,16 +318,22 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       return;
     }
 
-    setChat(data as unknown as Chat);
+    // Ignore stale response if user already switched chats
+    if (activeChatIdRef.current !== chatId) return;
+
+    const chatData = data as unknown as Chat;
+    setChat(chatData);
+    instanceNameRef.current = chatData.whatsapp_instances?.instance_name || null;
     setAvatarError(false);
   }, [chatId, supabase]);
 
-  // Mark as read when chat loads or when messages update
+  // Mark as read when chat loads or unread count changes
   useEffect(() => {
     if (chat && chat.unread_count > 0) {
       markAsRead();
     }
-  }, [chat?.id, chat?.unread_count, markAsRead]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat?.id, chat?.unread_count]);
 
   const loadMessages = useCallback(async () => {
     if (!chatId) return;
@@ -325,6 +344,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       .eq("chat_id", chatId)
       .order("timestamp", { ascending: true })
       .limit(200);
+
+    // Ignore stale response if user already switched chats
+    if (activeChatIdRef.current !== chatId) return;
 
     if (!error && data) {
       setMessages(prev => {
@@ -348,14 +370,22 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
 
   // Load chat and messages when chatId changes
   useEffect(() => {
+    // Track the active chatId to ignore stale async responses
+    activeChatIdRef.current = chatId;
+
     if (!chatId) {
       setChat(null);
       setMessages([]);
       setAssignments([]);
+      instanceNameRef.current = null;
       return;
     }
 
     setLoading(true);
+    setChat(null);
+    setMessages([]);
+    setAssignments([]);
+    instanceNameRef.current = null;
     loadChat();
     loadMessages();
     loadAssignments();
@@ -451,6 +481,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       throw new Error("WhatsApp not connected");
     }
 
+    // Capture the chatId at send time to prevent stale updates
+    const sentFromChatId = chatId;
+
     // Create optimistic message immediately
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage: Message = {
@@ -478,6 +511,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         message,
       }),
     }).then(async (response) => {
+      // Ignore if user already switched to a different chat
+      if (activeChatIdRef.current !== sentFromChatId) return;
+
       const data = await response.json();
       if (!response.ok) {
         // Remove optimistic message and show error
@@ -492,6 +528,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
         ));
       }
     }).catch((error) => {
+      // Ignore if user already switched to a different chat
+      if (activeChatIdRef.current !== sentFromChatId) return;
+
       // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== tempId));
       toast.error("Erro ao enviar mensagem");
@@ -510,6 +549,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
       toast.error("WhatsApp nao esta conectado");
       throw new Error("WhatsApp not connected");
     }
+
+    // Capture the chatId at send time to prevent stale updates
+    const sentFromChatId = chatId;
 
     // Create optimistic message immediately
     const tempId = `temp-${Date.now()}`;
@@ -560,6 +602,9 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
           }),
         });
 
+        // Ignore if user already switched to a different chat
+        if (activeChatIdRef.current !== sentFromChatId) return;
+
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.error || "Failed to send media");
@@ -572,9 +617,12 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
             : m
         ));
       } catch (error) {
-        // Remove optimistic message on error
-        setMessages(prev => prev.filter(m => m.id !== tempId));
-        toast.error("Erro ao enviar arquivo");
+        // Only update state if still on the same chat
+        if (activeChatIdRef.current === sentFromChatId) {
+          // Remove optimistic message on error
+          setMessages(prev => prev.filter(m => m.id !== tempId));
+          toast.error("Erro ao enviar arquivo");
+        }
         console.error("Send media error:", error);
       } finally {
         // Revoke preview URL

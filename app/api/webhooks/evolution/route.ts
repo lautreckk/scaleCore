@@ -509,19 +509,19 @@ export async function POST(request: NextRequest) {
         let messageType = "text";
         let mediaUrl: string | null = null;
 
+        // Map of media type to preview text
+        const MEDIA_PREVIEW_MAP: Record<string, string> = {
+          image: "[Imagem]",
+          video: "[Video]",
+          audio: "[Audio]",
+          document: "[Documento]",
+          sticker: "[Sticker]",
+        };
+
         // Helper to get preview text for last_message
         const getLastMessagePreview = (type: string, text: string): string => {
-          if (text && text.trim()) return text;
-          const preview = (() => {
-            switch (type) {
-              case "image": return "[Imagem]";
-              case "video": return "[Video]";
-              case "audio": return "[Audio]";
-              case "document": return "[Documento]";
-              case "sticker": return "[Sticker]";
-              default: return "";
-            }
-          })();
+          if (text && text.trim()) return text.trim().substring(0, 100);
+          const preview = MEDIA_PREVIEW_MAP[type] || "";
           console.log(`[Preview] type=${type}, text="${text}", preview="${preview}"`);
           return preview;
         };
@@ -813,7 +813,11 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          const insertPreview = getLastMessagePreview(messageType, content);
+          let insertPreview = getLastMessagePreview(messageType, content);
+          // Fallback: if preview is still empty for a known media type, use map directly
+          if (!insertPreview && MEDIA_PREVIEW_MAP[messageType]) {
+            insertPreview = MEDIA_PREVIEW_MAP[messageType];
+          }
           console.log(`[Chat Insert] preview="${insertPreview}", messageType=${messageType}`);
 
           const { data: newChat, error: chatError } = await supabase
@@ -827,6 +831,8 @@ export async function POST(request: NextRequest) {
               contact_name: !fromMe ? (messageData.pushName || null) : null,
               lead_id: leadId || null,
               last_message: insertPreview,
+              last_message_type: messageType,
+              last_message_from_me: fromMe,
               last_message_at: new Date().toISOString(),
               unread_count: fromMe ? 0 : 1,
               board_id: defaultBoardId,
@@ -854,12 +860,18 @@ export async function POST(request: NextRequest) {
         } else {
           // Update existing chat
           console.log(`[BEFORE PREVIEW] messageType=${messageType}, content="${content}", mediaUrl=${mediaUrl}`);
-          const previewText = getLastMessagePreview(messageType, content);
+          let previewText = getLastMessagePreview(messageType, content);
+          // Fallback: if preview is still empty for a known media type, use map directly
+          if (!previewText && MEDIA_PREVIEW_MAP[messageType]) {
+            previewText = MEDIA_PREVIEW_MAP[messageType];
+          }
           console.log(`[Chat Update] chatId=${chat.id}, messageType=${messageType}, content="${content}", preview="${previewText}", fromMe=${fromMe}`);
 
-          // Build update object - only include last_message if we have a preview
+          // Build update object
           const updateData: Record<string, unknown> = {
             last_message_at: new Date().toISOString(),
+            last_message_from_me: fromMe,
+            last_message_type: messageType,
           };
 
           // Only update last_message if we have a valid preview (not empty)
@@ -889,10 +901,9 @@ export async function POST(request: NextRequest) {
               console.log("[Chat Update] Success (fromMe=true)");
             }
           } else {
-            // Use direct SQL update to increment unread_count (bypasses RLS with service role)
+            // Increment unread_count for incoming messages
             console.log(`[Direct Update] chatId=${chat.id}, previewText="${previewText}"`);
 
-            // First get current unread_count
             const { data: currentChat } = await supabase
               .from("chats")
               .select("unread_count")
@@ -900,22 +911,17 @@ export async function POST(request: NextRequest) {
               .single();
 
             const newUnreadCount = (currentChat?.unread_count || 0) + 1;
-
-            const updatePayload: Record<string, unknown> = {
-              last_message: previewText,
-              last_message_at: new Date().toISOString(),
-              unread_count: newUnreadCount,
-            };
+            updateData.unread_count = newUnreadCount;
 
             if (messageData.pushName) {
-              updatePayload.contact_name = messageData.pushName;
+              updateData.contact_name = messageData.pushName;
             }
 
-            console.log(`[Direct Update] payload:`, JSON.stringify(updatePayload));
+            console.log(`[Direct Update] payload:`, JSON.stringify(updateData));
 
             const { error: updateError, data: updateResult } = await supabase
               .from("chats")
-              .update(updatePayload)
+              .update(updateData)
               .eq("id", chat.id)
               .select("id, last_message, last_message_at, unread_count");
 
@@ -923,10 +929,9 @@ export async function POST(request: NextRequest) {
               console.error("[Chat Update] Error:", updateError);
             } else {
               console.log("[Chat Update] Success, returned:", JSON.stringify(updateResult));
-              // Verify the update actually happened
               if (updateResult && updateResult[0]) {
                 const saved = updateResult[0];
-                if (saved.last_message !== previewText) {
+                if (saved.last_message !== previewText && previewText) {
                   console.error(`[Chat Update] MISMATCH! Expected "${previewText}" but got "${saved.last_message}"`);
                 }
               }
