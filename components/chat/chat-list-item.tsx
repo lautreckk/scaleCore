@@ -97,13 +97,6 @@ export function ChatListItem({
             {initial}
           </div>
         )}
-        {instanceColor && (
-          <div
-            className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-background"
-            style={{ backgroundColor: instanceColor }}
-            title={instanceName || undefined}
-          />
-        )}
       </div>
 
       {/* Content */}
