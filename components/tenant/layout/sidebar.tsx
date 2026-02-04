@@ -20,7 +20,6 @@ import {
   ChevronDown,
   Flame,
   CheckSquare,
-  CheckCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -133,10 +132,36 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
   const markInstanceAsRead = useCallback(async (instanceId: string) => {
     if (!tenantId) return;
 
+    // Optimistic local update
+    setInstances(prev => prev.map(i =>
+      i.id === instanceId ? { ...i, unreadCount: 0 } : i
+    ));
+    setTotalUnread(prev => {
+      const inst = instances.find(i => i.id === instanceId);
+      return Math.max(0, prev - (inst?.unreadCount || 0));
+    });
+
     await supabase
       .from("chats")
       .update({ unread_count: 0 })
       .eq("instance_id", instanceId)
+      .gt("unread_count", 0);
+
+    loadInstances();
+  }, [tenantId, instances, supabase, loadInstances]);
+
+  // Mark all chats as read
+  const markAllAsRead = useCallback(async () => {
+    if (!tenantId) return;
+
+    // Optimistic local update
+    setInstances(prev => prev.map(i => ({ ...i, unreadCount: 0 })));
+    setTotalUnread(0);
+
+    await supabase
+      .from("chats")
+      .update({ unread_count: 0 })
+      .eq("tenant_id", tenantId)
       .gt("unread_count", 0);
 
     loadInstances();
@@ -296,7 +321,10 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
                     {/* All instances option */}
                     <Link
                       href="/chats"
-                      onClick={onClose}
+                      onClick={() => {
+                        markAllAsRead();
+                        onClose?.();
+                      }}
                       className={cn(
                         "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
                         pathname === "/chats" && !currentInstanceId
@@ -320,46 +348,33 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
                       const isActive = currentInstanceId === instance.id;
 
                       return (
-                        <div key={instance.id} className="group relative">
-                          <Link
-                            href={`/chats?instance=${instance.id}`}
-                            onClick={onClose}
-                            className={cn(
-                              "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
-                              isActive
-                                ? "bg-primary/20 text-white"
-                                : "text-muted-foreground hover:bg-surface-elevated hover:text-white"
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="h-3 w-3 rounded-full"
-                                style={{ backgroundColor: instance.color || "#22c55e" }}
-                              />
-                              <span className="truncate">{instance.name}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {instance.unreadCount > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    markInstanceAsRead(instance.id);
-                                  }}
-                                  className="hidden group-hover:flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-white"
-                                  title="Marcar todas como lidas"
-                                >
-                                  <CheckCheck className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                              {instance.unreadCount > 0 && (
-                                <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
-                                  {instance.unreadCount > 99 ? "99+" : instance.unreadCount}
-                                </Badge>
-                              )}
-                            </div>
-                          </Link>
-                        </div>
+                        <Link
+                          key={instance.id}
+                          href={`/chats?instance=${instance.id}`}
+                          onClick={() => {
+                            markInstanceAsRead(instance.id);
+                            onClose?.();
+                          }}
+                          className={cn(
+                            "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
+                            isActive
+                              ? "bg-primary/20 text-white"
+                              : "text-muted-foreground hover:bg-surface-elevated hover:text-white"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: instance.color || "#22c55e" }}
+                            />
+                            <span className="truncate">{instance.name}</span>
+                          </div>
+                          {instance.unreadCount > 0 && (
+                            <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
+                              {instance.unreadCount > 99 ? "99+" : instance.unreadCount}
+                            </Badge>
+                          )}
+                        </Link>
                       );
                     })}
                   </CollapsibleContent>

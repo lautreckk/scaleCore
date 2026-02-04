@@ -115,6 +115,17 @@ export function ChatList({ selectedChatId, onSelectChat, instances }: ChatListPr
     setSelectedInstanceId(instanceParam);
   }, [searchParams]);
 
+  // When a chat is selected, immediately clear its unread count locally
+  useEffect(() => {
+    if (selectedChatId) {
+      setChats(prev => prev.map(c =>
+        c.id === selectedChatId && c.unread_count > 0
+          ? { ...c, unread_count: 0 }
+          : c
+      ));
+    }
+  }, [selectedChatId]);
+
   const loadUnreadCounts = useCallback(async () => {
     if (!tenantId) return;
 
