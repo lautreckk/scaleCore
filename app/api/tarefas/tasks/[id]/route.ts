@@ -33,6 +33,7 @@ export async function GET(
         department:department_id(id, name, color),
         created_by_user:created_by(id, name, email, avatar_url),
         task_checklists(id, title, is_completed, position),
+        task_attachments(id, file_name, file_url, file_type, file_size, uploaded_by, created_at),
         task_comments(
           id,
           content,
@@ -48,11 +49,15 @@ export async function GET(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Sort checklists and comments
+    // Sort checklists, attachments, and comments
     const sortedTask = {
       ...task,
       task_checklists: (task.task_checklists || []).sort(
         (a: { position: number }, b: { position: number }) => a.position - b.position
+      ),
+      task_attachments: (task.task_attachments || []).sort(
+        (a: { created_at: string }, b: { created_at: string }) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       ),
       task_comments: (task.task_comments || []).sort(
         (a: { created_at: string }, b: { created_at: string }) =>

@@ -1678,6 +1678,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      task_attachments: {
+        Row: {
+          id: string
+          task_id: string
+          file_name: string
+          file_url: string
+          file_type: string
+          file_size: number
+          uploaded_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          file_name: string
+          file_url: string
+          file_type: string
+          file_size: number
+          uploaded_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          file_name?: string
+          file_url?: string
+          file_type?: string
+          file_size?: number
+          uploaded_by?: string | null
+          created_at?: string
+        }
+      }
       task_checklists: {
         Row: {
           id: string

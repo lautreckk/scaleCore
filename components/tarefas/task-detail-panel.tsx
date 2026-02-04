@@ -28,6 +28,7 @@ import {
   Trash2,
   Check,
 } from "lucide-react";
+import { TaskAttachments } from "./task-attachments";
 import { TaskChecklist } from "./task-checklist";
 import { TaskComments } from "./task-comments";
 import { getInitials, cn } from "@/lib/utils";
@@ -53,6 +54,15 @@ interface TaskItem {
     name: string;
     color: string;
   } | null;
+  task_attachments: Array<{
+    id: string;
+    file_name: string;
+    file_url: string;
+    file_type: string;
+    file_size: number;
+    uploaded_by: string | null;
+    created_at: string;
+  }>;
   task_checklists: Array<{
     id: string;
     title: string;
@@ -528,6 +538,13 @@ export function TaskDetailPanel({
               rows={4}
             />
           </div>
+
+          {/* Attachments */}
+          <TaskAttachments
+            taskId={taskId}
+            attachments={task.task_attachments}
+            onUpdate={loadTask}
+          />
 
           <Separator />
 
