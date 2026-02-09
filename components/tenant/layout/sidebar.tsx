@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Flame,
   CheckSquare,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ const navigation = [
   { name: "Campanhas", href: "/campaigns", icon: Megaphone },
   { name: "Aquecimento", href: "/aquecimento", icon: Flame },
   { name: "Automações", href: "/automations", icon: Zap },
+  { name: "Meta Review", href: "/dashboard/meta-approval", icon: ShieldCheck, beta: true },
   { name: "Créditos", href: "/credits", icon: Wallet },
   { name: "Equipe", href: "/team", icon: UsersRound },
   { name: "Integrações", href: "/settings/integrations", icon: Link2 },
@@ -205,6 +207,10 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
 
   const isActiveRoute = (href: string) => {
     if (pathname === href) return true;
+    if (href === "/dashboard") {
+      return pathname.startsWith("/dashboard/") &&
+             !pathname.startsWith("/dashboard/meta-approval");
+    }
     if (href === "/settings") {
       return pathname.startsWith("/settings/") &&
              !pathname.startsWith("/settings/integrations");
@@ -398,6 +404,11 @@ export function Sidebar({ open, onClose, plan = "Starter" }: SidebarProps) {
                     >
                       <item.icon className="h-5 w-5" />
                       {item.name}
+                      {"beta" in item && item.beta && (
+                        <Badge className="ml-auto h-5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-[10px] px-1.5 hover:bg-yellow-500/20">
+                          BETA
+                        </Badge>
+                      )}
                     </Link>
                   </li>
                 );
