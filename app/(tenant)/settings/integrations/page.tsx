@@ -36,7 +36,10 @@ import {
   RefreshCw,
   Settings,
   Webhook,
+  MessageSquare,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 import { EvolutionServerCard } from "@/components/settings/evolution-server-card";
 import { EvolutionServerDialog } from "@/components/settings/evolution-server-dialog";
 import { InstanceSettingsDialog } from "@/components/settings/instance-settings-dialog";
@@ -448,6 +451,26 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-6">
+      {/* WhatsApp Meta (Oficial) Section */}
+      <Link href="/settings/integrations/meta" className="block group">
+        <Card className="border-green-500/20 hover:border-green-500/40 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                <MessageSquare className="h-6 w-6 text-green-500" />
+              </div>
+              <div>
+                <CardTitle>WhatsApp Meta (Oficial)</CardTitle>
+                <CardDescription>
+                  Conecte numeros oficiais do WhatsApp Business via Meta Embedded Signup
+                </CardDescription>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </CardHeader>
+        </Card>
+      </Link>
+
       {/* Evolution API Servers Section */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
