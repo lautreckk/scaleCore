@@ -50,7 +50,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **HAND-01**: Quando atendente responde manualmente no chat, tag de ativacao e removida automaticamente e IA para de responder
 - [ ] **HAND-02**: Resumo da conversa gerado via LLM quando humano assume (exibido como nota no chat)
-- [ ] **HAND-03**: Keywords de escalation configuráveis (ex: "falar com atendente", "quero uma pessoa") removem tag automaticamente
+- [ ] **HAND-03**: Keywords de escalation configuraveis (ex: "falar com atendente", "quero uma pessoa") removem tag automaticamente
 - [ ] **HAND-04**: Atendente pode reativar a IA adicionando a tag de volta ao chat manualmente
 
 ### Billing
@@ -99,45 +99,45 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGENT-01 | Phase ? | Pending |
-| AGENT-02 | Phase ? | Pending |
-| AGENT-03 | Phase ? | Pending |
-| AGENT-04 | Phase ? | Pending |
-| AGENT-05 | Phase ? | Pending |
-| AGENT-06 | Phase ? | Pending |
-| AGENT-07 | Phase ? | Pending |
-| PIPE-01 | Phase ? | Pending |
-| PIPE-02 | Phase ? | Pending |
-| PIPE-03 | Phase ? | Pending |
-| PIPE-04 | Phase ? | Pending |
-| PIPE-05 | Phase ? | Pending |
-| PIPE-06 | Phase ? | Pending |
-| MEM-01 | Phase ? | Pending |
-| MEM-02 | Phase ? | Pending |
-| MEM-03 | Phase ? | Pending |
-| MEDIA-01 | Phase ? | Pending |
-| MEDIA-02 | Phase ? | Pending |
-| MEDIA-03 | Phase ? | Pending |
-| LIB-01 | Phase ? | Pending |
-| LIB-02 | Phase ? | Pending |
-| LIB-03 | Phase ? | Pending |
-| LIB-04 | Phase ? | Pending |
-| LIB-05 | Phase ? | Pending |
-| HAND-01 | Phase ? | Pending |
-| HAND-02 | Phase ? | Pending |
-| HAND-03 | Phase ? | Pending |
-| HAND-04 | Phase ? | Pending |
-| BILL-01 | Phase ? | Pending |
-| BILL-02 | Phase ? | Pending |
-| BILL-03 | Phase ? | Pending |
-| TENANT-01 | Phase ? | Pending |
-| TENANT-02 | Phase ? | Pending |
+| AGENT-01 | Phase 1 | Pending |
+| AGENT-02 | Phase 1 | Pending |
+| AGENT-03 | Phase 1 | Pending |
+| AGENT-04 | Phase 1 | Pending |
+| AGENT-05 | Phase 1 | Pending |
+| AGENT-06 | Phase 1 | Pending |
+| AGENT-07 | Phase 1 | Pending |
+| PIPE-01 | Phase 2 | Pending |
+| PIPE-02 | Phase 2 | Pending |
+| PIPE-03 | Phase 2 | Pending |
+| PIPE-04 | Phase 2 | Pending |
+| PIPE-05 | Phase 2 | Pending |
+| PIPE-06 | Phase 2 | Pending |
+| MEM-01 | Phase 2 | Pending |
+| MEM-02 | Phase 2 | Pending |
+| MEM-03 | Phase 2 | Pending |
+| MEDIA-01 | Phase 4 | Pending |
+| MEDIA-02 | Phase 4 | Pending |
+| MEDIA-03 | Phase 4 | Pending |
+| LIB-01 | Phase 4 | Pending |
+| LIB-02 | Phase 4 | Pending |
+| LIB-03 | Phase 4 | Pending |
+| LIB-04 | Phase 4 | Pending |
+| LIB-05 | Phase 4 | Pending |
+| HAND-01 | Phase 3 | Pending |
+| HAND-02 | Phase 3 | Pending |
+| HAND-03 | Phase 3 | Pending |
+| HAND-04 | Phase 3 | Pending |
+| BILL-01 | Phase 2 | Pending |
+| BILL-02 | Phase 2 | Pending |
+| BILL-03 | Phase 2 | Pending |
+| TENANT-01 | Phase 1 | Pending |
+| TENANT-02 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 33 total
-- Mapped to phases: 0
-- Unmapped: 33
+- Mapped to phases: 33
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after initial definition*
+*Last updated: 2026-03-19 after roadmap creation*
