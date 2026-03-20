@@ -9,13 +9,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Agent Management
 
-- [ ] **AGENT-01**: Usuario pode criar agente com nome, prompt do sistema e configuracoes
-- [ ] **AGENT-02**: Usuario pode editar e deletar agentes existentes
+- [x] **AGENT-01**: Usuario pode criar agente com nome, prompt do sistema e configuracoes
+- [x] **AGENT-02**: Usuario pode editar e deletar agentes existentes
 - [x] **AGENT-03**: Usuario pode selecionar modelo LLM de uma lista curada do OpenRouter (8-12 modelos com precos estimados)
-- [ ] **AGENT-04**: Usuario pode vincular agente a 1 ou mais instancias WhatsApp conectadas
-- [ ] **AGENT-05**: Usuario pode desvincular agente de instancias sem afetar outros agentes
-- [ ] **AGENT-06**: Usuario pode configurar tag de ativacao customizada por agente (ex: "bot-vendas", "bot-suporte")
-- [ ] **AGENT-07**: Usuario pode escolher entre aplicar tag em todos os chats existentes ou apenas em novos chats (todo chat novo ja recebe a tag automaticamente)
+- [x] **AGENT-04**: Usuario pode vincular agente a 1 ou mais instancias WhatsApp conectadas
+- [x] **AGENT-05**: Usuario pode desvincular agente de instancias sem afetar outros agentes
+- [x] **AGENT-06**: Usuario pode configurar tag de ativacao customizada por agente (ex: "bot-vendas", "bot-suporte")
+- [x] **AGENT-07**: Usuario pode escolher entre aplicar tag em todos os chats existentes ou apenas em novos chats (todo chat novo ja recebe a tag automaticamente)
 
 ### Text Pipeline
 
