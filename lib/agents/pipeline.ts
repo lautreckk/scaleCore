@@ -9,6 +9,17 @@ import {
 } from "./memory";
 import { checkAndDebitWallet } from "./billing";
 import { sendSplitResponse } from "./splitter";
+import { performHandoff } from "./handoff";
+
+/**
+ * Check if message content matches any escalation keyword.
+ * Case-insensitive, substring matching.
+ */
+export function isEscalationMatch(content: string, keywords: string[]): boolean {
+  if (keywords.length === 0) return false;
+  const lowerContent = content.trim().toLowerCase();
+  return keywords.some((kw) => lowerContent.includes(kw.toLowerCase()));
+}
 
 interface ProcessMessageParams {
   instanceId: string;
@@ -68,6 +79,32 @@ export async function processAgentMessage(
     });
     console.log(`[AI Agent] Conversation history cleared for ${remoteJid}`);
     return;
+  }
+
+  // 3.5. HAND-03: Escalation keyword detection
+  const escalationKeywords: string[] = agent.escalation_keywords || [];
+  if (isEscalationMatch(content, escalationKeywords)) {
+    // Find chat ID for this conversation
+    const { data: chatData } = await supabase
+      .from("chats")
+      .select("id")
+      .eq("instance_id", instanceId)
+      .eq("remote_jid", remoteJid)
+      .or("status.is.null,status.eq.open")
+      .single();
+
+    if (chatData) {
+      await performHandoff({
+        chatId: chatData.id,
+        activationTag: agent.activation_tag,
+        instanceId,
+        remoteJid,
+        supabase,
+      });
+    }
+
+    console.log(`[AI Agent] Escalation keyword detected for ${remoteJid}: "${content.substring(0, 50)}"`);
+    return; // Stop AI processing -- human takes over
   }
 
   // 4. Add to buffer and wait for grouping window
