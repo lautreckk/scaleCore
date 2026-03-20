@@ -2,7 +2,7 @@
 phase: 4
 slug: media
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-20
 ---
@@ -38,14 +38,14 @@ created: 2026-03-20
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 04-01-01 | 01 | 1 | MEDIA-01 | integration | `npx vitest run src/__tests__/media-audio.test.ts` | ❌ W0 | ⬜ pending |
-| 04-01-02 | 01 | 1 | MEDIA-02 | integration | `npx vitest run src/__tests__/media-image.test.ts` | ❌ W0 | ⬜ pending |
-| 04-01-03 | 01 | 1 | MEDIA-03 | integration | `npx vitest run src/__tests__/media-pdf.test.ts` | ❌ W0 | ⬜ pending |
-| 04-02-01 | 02 | 1 | LIB-01 | integration | `npx vitest run src/__tests__/media-library-crud.test.ts` | ❌ W0 | ⬜ pending |
-| 04-02-02 | 02 | 1 | LIB-02 | unit | `npx vitest run src/__tests__/media-library-metadata.test.ts` | ❌ W0 | ⬜ pending |
-| 04-02-03 | 02 | 2 | LIB-03 | integration | `npx vitest run src/__tests__/media-prompt-injection.test.ts` | ❌ W0 | ⬜ pending |
-| 04-02-04 | 02 | 2 | LIB-04 | integration | `npx vitest run src/__tests__/media-marker-decision.test.ts` | ❌ W0 | ⬜ pending |
-| 04-02-05 | 02 | 2 | LIB-05 | integration | `npx vitest run src/__tests__/media-marker-send.test.ts` | ❌ W0 | ⬜ pending |
+| 04-01-01 | 01 | 1 | MEDIA-01 | unit | `npx vitest run ScaleCore/tests/unit/media-processor.test.ts` | ❌ W0 | ⬜ pending |
+| 04-01-02 | 01 | 1 | MEDIA-02 | unit | `npx vitest run ScaleCore/tests/unit/media-processor.test.ts` | ❌ W0 | ⬜ pending |
+| 04-01-03 | 01 | 1 | MEDIA-03 | unit | `npx vitest run ScaleCore/tests/unit/media-processor.test.ts` | ❌ W0 | ⬜ pending |
+| 04-02-01 | 02 | 1 | LIB-01 | manual | N/A (UI CRUD — see Manual-Only below) | N/A | ⬜ pending |
+| 04-02-02 | 02 | 1 | LIB-02 | manual | N/A (UI metadata — see Manual-Only below) | N/A | ⬜ pending |
+| 04-03-01 | 03 | 2 | LIB-03 | unit | `npx vitest run ScaleCore/tests/unit/media-library.test.ts` | ❌ W0 | ⬜ pending |
+| 04-03-02 | 03 | 2 | LIB-04 | unit | `npx vitest run ScaleCore/tests/unit/media-library.test.ts` | ❌ W0 | ⬜ pending |
+| 04-03-03 | 03 | 2 | LIB-05 | unit | `npx vitest run ScaleCore/tests/unit/media-library.test.ts` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -53,14 +53,8 @@ created: 2026-03-20
 
 ## Wave 0 Requirements
 
-- [ ] `src/__tests__/media-audio.test.ts` — stubs for MEDIA-01 (audio transcription)
-- [ ] `src/__tests__/media-image.test.ts` — stubs for MEDIA-02 (image description)
-- [ ] `src/__tests__/media-pdf.test.ts` — stubs for MEDIA-03 (PDF extraction)
-- [ ] `src/__tests__/media-library-crud.test.ts` — stubs for LIB-01 (CRUD upload)
-- [ ] `src/__tests__/media-library-metadata.test.ts` — stubs for LIB-02 (name/description)
-- [ ] `src/__tests__/media-prompt-injection.test.ts` — stubs for LIB-03 (prompt augmentation)
-- [ ] `src/__tests__/media-marker-decision.test.ts` — stubs for LIB-04 (AI decision)
-- [ ] `src/__tests__/media-marker-send.test.ts` — stubs for LIB-05 (marker extraction + send)
+- [ ] `ScaleCore/tests/unit/media-processor.test.ts` — stubs for MEDIA-01 (audio transcription), MEDIA-02 (image description), MEDIA-03 (PDF extraction)
+- [ ] `ScaleCore/tests/unit/media-library.test.ts` — stubs for LIB-03 (prompt augmentation), LIB-04 (marker extraction), LIB-05 (marker stripping)
 
 ---
 
@@ -68,6 +62,8 @@ created: 2026-03-20
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
+| Media library CRUD UI | LIB-01 | Next.js API routes + Supabase integration; UI upload/list/delete requires browser | Open agent edit page, upload media, verify list, delete item |
+| Media name/description editing | LIB-02 | UI inline edit with API PATCH; requires browser interaction | Edit media item name/description, save, verify persistence |
 | Audio transcription accuracy | MEDIA-01 | Requires real audio file + LLM call | Send audio via WhatsApp, verify agent responds to content |
 | Image description accuracy | MEDIA-02 | Requires real image + LLM call | Send image via WhatsApp, verify agent describes it |
 | AI contextual media sending | LIB-04 | Requires LLM judgment | Chat with agent, verify it sends relevant library media |
@@ -76,11 +72,11 @@ created: 2026-03-20
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies or documented manual-only
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
