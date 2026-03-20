@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createEvolutionClient } from "@/lib/evolution/client";
 import { decrypt } from "@/lib/encryption";
+import { processAgentMessage } from "@/lib/agents/pipeline";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -663,7 +664,7 @@ export async function POST(request: NextRequest) {
         // Find open chat (protocol system: only look for non-closed chats)
         let { data: chat } = await supabase
           .from("chats")
-          .select("id, status, lead_id")
+          .select("id, status, lead_id, tags")
           .eq("tenant_id", tenantId)
           .eq("instance_id", instance.id)
           .eq("remote_jid", remoteJid)
@@ -674,7 +675,7 @@ export async function POST(request: NextRequest) {
         if (!chat && fromMe) {
           const { data: recentChat } = await supabase
             .from("chats")
-            .select("id, status, lead_id")
+            .select("id, status, lead_id, tags")
             .eq("tenant_id", tenantId)
             .eq("instance_id", instance.id)
             .eq("remote_jid", remoteJid)
@@ -1001,6 +1002,39 @@ export async function POST(request: NextRequest) {
               total_messages_sent: (instance.total_messages_sent || 0) + 1,
             })
             .eq("id", instance.id);
+        }
+
+        // AI Agent processing (fire-and-forget — does not block webhook response)
+        // Skip: fromMe messages (PIPE-04), non-text messages, empty content
+        if (!fromMe && messageType === "text" && content && instance.evolution_config_id) {
+          try {
+            const { data: evoConfig } = await supabase
+              .from("evolution_api_configs")
+              .select("url, api_key_encrypted")
+              .eq("id", instance.evolution_config_id)
+              .single();
+
+            if (evoConfig) {
+              const evoApiKey = decrypt(evoConfig.api_key_encrypted);
+              const aiEvolutionClient = createEvolutionClient({
+                url: evoConfig.url,
+                apiKey: evoApiKey,
+              });
+
+              processAgentMessage({
+                instanceId: instance.id,
+                instanceName: instanceName,
+                remoteJid: remoteJid,
+                content: content,
+                tenantId: tenantId,
+                chatTags: (chat as any)?.tags || null,
+                supabase: supabase,
+                evolutionClient: aiEvolutionClient,
+              }).catch((err) => console.error("[AI Agent] Pipeline error:", err));
+            }
+          } catch (err) {
+            console.error("[AI Agent] Failed to initialize pipeline:", err);
+          }
         }
         break;
       }
