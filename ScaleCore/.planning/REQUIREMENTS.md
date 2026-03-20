@@ -48,10 +48,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Human Handoff
 
-- [ ] **HAND-01**: Quando atendente responde manualmente no chat, tag de ativacao e removida automaticamente e IA para de responder
-- [ ] **HAND-02**: Resumo da conversa gerado via LLM quando humano assume (exibido como nota no chat)
-- [ ] **HAND-03**: Keywords de escalation configuraveis (ex: "falar com atendente", "quero uma pessoa") removem tag automaticamente
-- [ ] **HAND-04**: Atendente pode reativar a IA adicionando a tag de volta ao chat manualmente
+- [x] **HAND-01**: Quando atendente responde manualmente no chat, tag de ativacao e removida automaticamente e IA para de responder
+- [x] **HAND-02**: Resumo da conversa gerado via LLM quando humano assume (exibido como nota no chat)
+- [x] **HAND-03**: Keywords de escalation configuraveis (ex: "falar com atendente", "quero uma pessoa") removem tag automaticamente
+- [x] **HAND-04**: Atendente pode reativar a IA adicionando a tag de volta ao chat manualmente
 
 ### Billing
 
@@ -123,10 +123,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | LIB-03 | Phase 4 | Pending |
 | LIB-04 | Phase 4 | Pending |
 | LIB-05 | Phase 4 | Pending |
-| HAND-01 | Phase 3 | Pending |
-| HAND-02 | Phase 3 | Pending |
-| HAND-03 | Phase 3 | Pending |
-| HAND-04 | Phase 3 | Pending |
+| HAND-01 | Phase 3 | Complete |
+| HAND-02 | Phase 3 | Complete |
+| HAND-03 | Phase 3 | Complete |
+| HAND-04 | Phase 3 | Complete |
 | BILL-01 | Phase 2 | Complete |
 | BILL-02 | Phase 2 | Complete |
 | BILL-03 | Phase 2 | Complete |
