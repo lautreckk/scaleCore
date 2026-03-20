@@ -34,17 +34,17 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Media Processing (Inbound)
 
-- [ ] **MEDIA-01**: Lead envia audio e o agente transcreve via Whisper e processa como texto
-- [ ] **MEDIA-02**: Lead envia imagem e o agente descreve via Vision model e processa como texto
-- [ ] **MEDIA-03**: Lead envia PDF e o agente extrai texto e processa como conteudo
+- [x] **MEDIA-01**: Lead envia audio e o agente transcreve via Whisper e processa como texto
+- [x] **MEDIA-02**: Lead envia imagem e o agente descreve via Vision model e processa como texto
+- [x] **MEDIA-03**: Lead envia PDF e o agente extrai texto e processa como conteudo
 
 ### Media Library (Outbound)
 
 - [ ] **LIB-01**: Usuario pode fazer upload de imagens, videos e documentos na biblioteca de midia do agente
 - [ ] **LIB-02**: Usuario pode adicionar descricao e nome a cada midia uploadada
-- [ ] **LIB-03**: Lista de midias disponiveis e injetada no prompt do sistema para a IA decidir quando enviar
-- [ ] **LIB-04**: IA decide contextualmente quando enviar midia baseado no prompt e na conversa
-- [ ] **LIB-05**: Sistema detecta marcadores de midia na resposta da IA e envia via Evolution API (imagem, video, audio, documento)
+- [x] **LIB-03**: Lista de midias disponiveis e injetada no prompt do sistema para a IA decidir quando enviar
+- [x] **LIB-04**: IA decide contextualmente quando enviar midia baseado no prompt e na conversa
+- [x] **LIB-05**: Sistema detecta marcadores de midia na resposta da IA e envia via Evolution API (imagem, video, audio, documento)
 
 ### Human Handoff
 
@@ -115,14 +115,14 @@ Deferred to future release. Tracked but not in current roadmap.
 | MEM-01 | Phase 2 | Complete |
 | MEM-02 | Phase 2 | Complete |
 | MEM-03 | Phase 2 | Complete |
-| MEDIA-01 | Phase 4 | Pending |
-| MEDIA-02 | Phase 4 | Pending |
-| MEDIA-03 | Phase 4 | Pending |
+| MEDIA-01 | Phase 4 | Complete |
+| MEDIA-02 | Phase 4 | Complete |
+| MEDIA-03 | Phase 4 | Complete |
 | LIB-01 | Phase 4 | Pending |
 | LIB-02 | Phase 4 | Pending |
-| LIB-03 | Phase 4 | Pending |
-| LIB-04 | Phase 4 | Pending |
-| LIB-05 | Phase 4 | Pending |
+| LIB-03 | Phase 4 | Complete |
+| LIB-04 | Phase 4 | Complete |
+| LIB-05 | Phase 4 | Complete |
 | HAND-01 | Phase 3 | Complete |
 | HAND-02 | Phase 3 | Complete |
 | HAND-03 | Phase 3 | Complete |
