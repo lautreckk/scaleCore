@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-03-20T12:13:52.618Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-20T12:16:28.960Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 6
 ---
 
 # Project State
@@ -24,22 +24,22 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 02 (text-pipeline) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 3min
-- Total execution time: 0.2 hours
+- Total execution time: 0.25 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-agent-foundation | 3/3 | 10min | 3min |
-| 02-text-pipeline | 1/4 | 2min | 2min |
+| 02-text-pipeline | 2/4 | 5min | 2.5min |
 
 **Recent Trend:**
 
@@ -47,6 +47,7 @@ Plan: 2 of 4
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 02 P02 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,10 @@ Recent decisions affecting current work:
 - 01-03: useRef over useState for savedAgentId to avoid stale closure in handleBulkTagConfirm
 - 02-00: vitest.config.ts at monorepo root with @ alias resolving to monorepo root
 - 02-00: Test stubs use it.todo() pattern for TDD workflow in subsequent plans
+- 02-01: No new npm dependencies — all modules use existing @supabase/supabase-js + native fetch
+- 02-01: Agent lib modules accept SupabaseClient as parameter for caller flexibility and testability
+- [Phase 02]: 02-02: Used EvolutionApiClient interface type import matching existing factory pattern
+- [Phase 02]: 02-02: Buffer TTL 15s (10s window + 5s margin), SETNX lock 30s auto-expire
 
 ### Pending Todos
 
@@ -77,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T12:13:30Z
-Stopped at: Completed 02-00-PLAN.md
-Resume file: .planning/phases/02-text-pipeline/02-00-SUMMARY.md
+Last session: 2026-03-20T12:16:28.957Z
+Stopped at: Completed 02-02-PLAN.md
+Resume file: None

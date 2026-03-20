@@ -24,11 +24,11 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **PIPE-03**: Agente ignora mensagens de leads que nao possuem a tag de ativacao configurada
 - [x] **PIPE-04**: Agente ignora mensagens enviadas pelo proprio atendente (fromMe = true)
 - [x] **PIPE-05**: Resposta da IA e dividida em frases e enviada em mensagens separadas com delay natural entre elas
-- [ ] **PIPE-06**: Typing indicator ("digitando...") exibido no WhatsApp enquanto a IA processa
+- [x] **PIPE-06**: Typing indicator ("digitando...") exibido no WhatsApp enquanto a IA processa
 
 ### Conversation Memory
 
-- [ ] **MEM-01**: Historico de conversa persistido por lead/telefone no Supabase com sliding window de 50 mensagens
+- [x] **MEM-01**: Historico de conversa persistido por lead/telefone no Supabase com sliding window de 50 mensagens
 - [x] **MEM-02**: Memoria foca nas mensagens mais recentes para evitar alucinacao em contextos longos
 - [ ] **MEM-03**: Usuario pode limpar historico de conversa de um lead via comando (ex: #limpar)
 
@@ -55,7 +55,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Billing
 
-- [ ] **BILL-01**: Creditos debitados do wallet do tenant a cada mensagem processada pela IA
+- [x] **BILL-01**: Creditos debitados do wallet do tenant a cada mensagem processada pela IA
 - [x] **BILL-02**: Custo por mensagem varia conforme o modelo selecionado (modelos mais caros = mais creditos)
 - [x] **BILL-03**: Agente para de responder se wallet do tenant nao tem creditos suficientes
 
@@ -111,8 +111,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | PIPE-03 | Phase 2 | Complete |
 | PIPE-04 | Phase 2 | Complete |
 | PIPE-05 | Phase 2 | Complete |
-| PIPE-06 | Phase 2 | Pending |
-| MEM-01 | Phase 2 | Pending |
+| PIPE-06 | Phase 2 | Complete |
+| MEM-01 | Phase 2 | Complete |
 | MEM-02 | Phase 2 | Complete |
 | MEM-03 | Phase 2 | Pending |
 | MEDIA-01 | Phase 4 | Pending |
@@ -127,7 +127,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | HAND-02 | Phase 3 | Pending |
 | HAND-03 | Phase 3 | Pending |
 | HAND-04 | Phase 3 | Pending |
-| BILL-01 | Phase 2 | Pending |
+| BILL-01 | Phase 2 | Complete |
 | BILL-02 | Phase 2 | Complete |
 | BILL-03 | Phase 2 | Complete |
 | TENANT-01 | Phase 1 | Complete |
