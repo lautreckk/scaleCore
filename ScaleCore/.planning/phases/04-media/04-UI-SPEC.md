@@ -45,7 +45,7 @@ Declared values (must be multiples of 4):
 |-------|-------|-------|
 | xs | 4px | Icon gaps, inline padding |
 | sm | 8px | Compact element spacing, gap between media grid items |
-| md | 16px | Default element spacing, card padding |
+| md | 16px | Default element spacing, card padding, gap between thumbnail and content |
 | lg | 24px | Section padding, space between media library header and grid |
 | xl | 32px | Layout gaps |
 | 2xl | 48px | Major section breaks |
@@ -60,11 +60,13 @@ Exceptions: none
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.5 |
-| Label | 14px | 500 (medium) | 1.4 |
+| Label | 14px | 600 (semibold) | 1.4 |
 | Heading | 16px | 600 (semibold) | 1.25 |
 | Caption | 12px | 400 (regular) | 1.4 |
 
-**Source:** Existing button component uses `text-sm` (14px) + `font-medium`. Form labels use 14px medium. Section headings in agent form use 16px semibold. Caption size (12px) used for file size, media type, and timestamp metadata.
+**Weights used:** 2 total -- 400 (regular) for Body and Caption, 600 (semibold) for Label and Heading.
+
+**Source:** Existing button component uses `text-sm` (14px) + `font-semibold`. Form labels use 14px semibold. Section headings in agent form use 16px semibold. Caption size (12px) used for file size, media type, and timestamp metadata.
 
 ---
 
@@ -81,7 +83,9 @@ Exceptions: none
 
 Accent reserved for: Upload CTA button, active/enabled toggle indicator on media items, file type icon badge backgrounds.
 
-**Source:** Detected from `globals.css` CSS custom properties. This is a dark-first theme with red accent. Note: `--primary` and `--destructive` share the same hue (red 0 84% 50%); destructive actions must be distinguished by context (icon + copy), not color alone.
+**Destructive interaction contract:** Since `--primary` and `--destructive` share the same red hue (`0 84% 50%`), destructive actions must be distinguished from the accent CTA through context (icon + copy), not color alone. The delete button uses `ghost` variant at rest (no background fill). On hover and focus, the delete button applies `bg-destructive/15` (15% opacity destructive background) with `border border-destructive/40` to create a lighter, outlined treatment that visually separates it from the solid-fill upload CTA. The upload CTA uses the `default` variant with full solid `bg-primary` fill.
+
+**Source:** Detected from `globals.css` CSS custom properties. This is a dark-first theme with red accent.
 
 ---
 
@@ -119,6 +123,10 @@ Accent reserved for: Upload CTA button, active/enabled toggle indicator on media
 
 ## Interaction Contract
 
+### Visual Focal Point
+
+**Primary visual anchor:** The "Adicionar midia" button in the section header row. This is the main call-to-action and should be the first element the user's eye lands on within the media library section.
+
 ### Upload Flow
 
 1. User clicks "Adicionar midia" button (outline variant, Upload icon from lucide)
@@ -137,7 +145,7 @@ Accent reserved for: Upload CTA button, active/enabled toggle indicator on media
 Each media item card shows:
 - **Left:** Thumbnail (64x64px, object-cover, rounded-md) for images; file type icon (lucide: Image, Video, Music, FileText) for non-previewable types
 - **Center:** Name (14px semibold, single line, truncate), Description (12px regular muted-foreground, 2 lines max, truncate), Media type badge (12px, secondary variant), File size (12px muted-foreground)
-- **Right:** Edit button (ghost, Pencil icon), Delete button (ghost, Trash2 icon, destructive on hover)
+- **Right:** Edit button (ghost, Pencil icon, `aria-label="Editar {name}"`), Delete button (ghost, Trash2 icon, `aria-label="Remover {name}"`, destructive hover/focus style per Color section)
 
 ### Edit Inline
 
@@ -190,11 +198,11 @@ While fetching media list: show 3 Skeleton cards (same dimensions as MediaItemCa
 ### MediaItemCard Layout
 
 ```
-[Thumbnail 64x64] [gap-12px] [Name + Description + Meta row] [gap-auto] [Edit btn] [Delete btn]
+[Thumbnail 64x64] [gap-16px] [Name + Description + Meta row] [gap-auto] [Edit btn] [Delete btn]
 ```
 
 - Horizontal flex layout
-- Card with `bg-card` background, `border-border` border, `rounded-lg`, `p-3` (12px padding)
+- Card with `bg-card` background, `border-border` border, `rounded-lg`, `p-4` (16px padding)
 - Meta row: Badge(media type) + file size text, separated by 8px gap
 
 ---
@@ -215,7 +223,7 @@ While fetching media list: show 3 Skeleton cards (same dimensions as MediaItemCa
 | Save success toast | Midia salva com sucesso |
 | Delete confirmation title | Remover midia |
 | Delete confirmation body | Tem certeza que deseja remover "{name}"? A IA nao podera mais enviar esta midia nas conversas. |
-| Delete confirmation action | Remover |
+| Delete confirmation action | Remover midia |
 | Delete success toast | Midia removida |
 | File type: image | Imagem |
 | File type: video | Video |
@@ -241,6 +249,8 @@ No third-party registries. No new shadcn component installations needed for this
 ## Accessibility Notes
 
 - Upload button must have `aria-label="Adicionar midia ao agente"`
+- Edit icon-only buttons must have `aria-label="Editar {name}"` where `{name}` is the media item name
+- Delete icon-only buttons must have `aria-label="Remover {name}"` where `{name}` is the media item name
 - Media item cards must be keyboard-navigable (Tab to focus, Enter to edit)
 - Delete confirmation dialog auto-focuses the cancel button (safe default)
 - File type badges use text labels, not color-only differentiation
