@@ -59,3 +59,16 @@ export async function drainBuffer(
     await redis.del(lockKey);
   }
 }
+
+/**
+ * Clear all buffer and lock keys for a given instance+lead combination.
+ * Called during handoff to prevent stale messages from processing after AI is deactivated.
+ */
+export async function clearBuffer(
+  instanceId: string,
+  remoteJid: string
+): Promise<void> {
+  const bufferKey = `agent-buf:${instanceId}:${remoteJid}`;
+  const lockKey = `agent-lock:${instanceId}:${remoteJid}`;
+  await redis.del(bufferKey, lockKey);
+}
