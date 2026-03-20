@@ -83,7 +83,7 @@ Plans:
 - [ ] 04-00-PLAN.md — Wave 0: Install pdf-parse, create test stub files for media-processor and media-library
 - [ ] 04-01-PLAN.md — DB migration (ai_agent_media), OpenRouter multimodal extension, media-processor module (audio/image/PDF)
 - [ ] 04-02-PLAN.md — Media library API routes (CRUD + upload), MediaLibrary UI component, agent form integration
-- [ ] 04-03-PLAN.md — Media library module (prompt injection + markers), pipeline + webhook wiring, end-to-end verification
+- [x] 04-03-PLAN.md — Media library module (prompt injection + markers), pipeline + webhook wiring, end-to-end verification
 
 ## Progress
 
@@ -95,4 +95,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Agent Foundation | 2/3 | Gap closure | - |
 | 2. Text Pipeline | 4/4 | Complete   | 2026-03-20 |
 | 3. Human Handoff | 0/3 | Planned | - |
-| 4. Media | 3/4 | In Progress|  |
+| 4. Media | 4/4 | Complete | 2026-03-20 |
