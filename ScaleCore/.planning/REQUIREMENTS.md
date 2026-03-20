@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **AGENT-01**: Usuario pode criar agente com nome, prompt do sistema e configuracoes
 - [ ] **AGENT-02**: Usuario pode editar e deletar agentes existentes
-- [ ] **AGENT-03**: Usuario pode selecionar modelo LLM de uma lista curada do OpenRouter (8-12 modelos com precos estimados)
+- [x] **AGENT-03**: Usuario pode selecionar modelo LLM de uma lista curada do OpenRouter (8-12 modelos com precos estimados)
 - [ ] **AGENT-04**: Usuario pode vincular agente a 1 ou mais instancias WhatsApp conectadas
 - [ ] **AGENT-05**: Usuario pode desvincular agente de instancias sem afetar outros agentes
 - [ ] **AGENT-06**: Usuario pode configurar tag de ativacao customizada por agente (ex: "bot-vendas", "bot-suporte")
@@ -61,8 +61,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Multi-tenancy
 
-- [ ] **TENANT-01**: Todos os dados de agentes, midias, historico e configuracoes isolados por tenant_id com RLS
-- [ ] **TENANT-02**: Usuario so ve e gerencia agentes do proprio tenant
+- [x] **TENANT-01**: Todos os dados de agentes, midias, historico e configuracoes isolados por tenant_id com RLS
+- [x] **TENANT-02**: Usuario so ve e gerencia agentes do proprio tenant
 
 ## v2 Requirements
 
@@ -101,7 +101,7 @@ Deferred to future release. Tracked but not in current roadmap.
 |-------------|-------|--------|
 | AGENT-01 | Phase 1 | Pending |
 | AGENT-02 | Phase 1 | Pending |
-| AGENT-03 | Phase 1 | Pending |
+| AGENT-03 | Phase 1 | Complete |
 | AGENT-04 | Phase 1 | Pending |
 | AGENT-05 | Phase 1 | Pending |
 | AGENT-06 | Phase 1 | Pending |
@@ -130,8 +130,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | BILL-01 | Phase 2 | Pending |
 | BILL-02 | Phase 2 | Pending |
 | BILL-03 | Phase 2 | Pending |
-| TENANT-01 | Phase 1 | Pending |
-| TENANT-02 | Phase 1 | Pending |
+| TENANT-01 | Phase 1 | Complete |
+| TENANT-02 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 33 total
