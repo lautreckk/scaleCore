@@ -62,10 +62,12 @@ Plans:
   2. Keywords de escalation configuradas pelo usuario removem tag automaticamente quando lead as digita
   3. Resumo da conversa gerado via LLM aparece como nota no chat quando humano assume
   4. Atendente pode reativar a IA adicionando a tag de volta ao chat manualmente
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Test stubs, DB migration (escalation_keywords + remove_chat_tag RPC), handoff module, buffer cleanup
+- [ ] 03-02-PLAN.md — Webhook fromMe handoff branch, pipeline escalation keyword detection
+- [ ] 03-03-PLAN.md — Escalation keywords UI in agent form, system_note rendering in chat, API route updates
 
 ### Phase 4: Media
 **Goal**: Agentes processam midia recebida (audio, imagem, PDF) e enviam midias da biblioteca quando contextualmente apropriado
@@ -90,5 +92,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Agent Foundation | 2/3 | Gap closure | - |
 | 2. Text Pipeline | 4/4 | Complete   | 2026-03-20 |
-| 3. Human Handoff | 0/1 | Not started | - |
+| 3. Human Handoff | 0/3 | Planned | - |
 | 4. Media | 0/2 | Not started | - |
