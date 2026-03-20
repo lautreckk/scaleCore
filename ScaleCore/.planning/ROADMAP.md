@@ -45,9 +45,10 @@ Plans:
   3. Agente ignora leads sem a tag de ativacao e ignora mensagens do proprio atendente (fromMe)
   4. IA mantem contexto da conversa ao longo de multiplas interacoes (memoria de 50 mensagens com sliding window)
   5. Creditos sao debitados do wallet por mensagem processada, com custo variavel por modelo, e agente para se wallet insuficiente
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
+- [ ] 02-00-PLAN.md — Wave 0: Install vitest, create 7 test stub files for Nyquist compliance
 - [ ] 02-01-PLAN.md — Database migration (ai_conversation_messages), OpenRouter client, memory module, billing module
 - [ ] 02-02-PLAN.md — Upstash Redis buffer module, response splitter with typing indicators
 - [ ] 02-03-PLAN.md — Pipeline orchestrator, webhook integration, end-to-end WhatsApp verification
@@ -88,6 +89,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Agent Foundation | 2/3 | Gap closure | - |
-| 2. Text Pipeline | 0/3 | Planned | - |
+| 2. Text Pipeline | 0/4 | Planned | - |
 | 3. Human Handoff | 0/1 | Not started | - |
 | 4. Media | 0/2 | Not started | - |
