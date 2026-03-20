@@ -24,6 +24,7 @@ import {
   CheckCircle,
   RotateCcw,
   Users,
+  Bot,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -1003,6 +1004,46 @@ export function ChatWindow({ chatId, onTogglePanel, showPanelButton }: ChatWindo
                 {messages.map((message, index) => {
                   const isGroupChat = chat?.remote_jid?.endsWith("@g.us") ?? false;
                   const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
+
+                  // Render handoff summary notes (HAND-02)
+                  if (message.message_type === "system_note") {
+                    const rawContent = message.content || "";
+                    const isFallback = rawContent.startsWith("[Handoff IA]");
+                    const displayContent = rawContent
+                      .replace(/^\[Resumo IA\]\s*/, "")
+                      .replace(/^\[Handoff IA\]\s*/, "");
+
+                    return (
+                      <React.Fragment key={message.id}>
+                        {showDateSeparator && (
+                          <DateSeparator date={message.timestamp} />
+                        )}
+                        <div className="flex justify-center my-3">
+                          <div className="mx-auto max-w-[85%] bg-muted/40 border border-border rounded-lg px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Bot className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Resumo da conversa
+                              </span>
+                            </div>
+                            <p className={`text-sm mt-2 whitespace-pre-wrap ${
+                              isFallback ? "text-muted-foreground/50" : "text-muted-foreground"
+                            }`}>
+                              {displayContent}
+                            </p>
+                            {message.timestamp && (
+                              <p className="text-[10px] text-muted-foreground/70 mt-1 text-right">
+                                {new Date(message.timestamp).toLocaleTimeString("pt-BR", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </React.Fragment>
+                    );
+                  }
 
                   // Render system messages differently
                   if (message.message_type === "system") {
