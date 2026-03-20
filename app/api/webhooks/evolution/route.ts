@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createEvolutionClient } from "@/lib/evolution/client";
 import { decrypt } from "@/lib/encryption";
 import { processAgentMessage } from "@/lib/agents/pipeline";
+import { performHandoff } from "@/lib/agents/handoff";
 import { waitUntil } from "@vercel/functions";
 
 const supabase = createClient(
@@ -1005,6 +1006,45 @@ export async function POST(request: NextRequest) {
               total_messages_sent: (instance.total_messages_sent || 0) + 1,
             })
             .eq("id", instance.id);
+        }
+
+        // HAND-01: Human handoff -- attendant sends message, remove AI tag
+        if (fromMe && chat?.tags?.length) {
+          // Check if this is a human-sent message, not an AI echo
+          // AI pipeline inserts messages with message_id starting with "ai-"
+          const webhookMessageId = messageData.key?.id;
+          const isAiEcho = webhookMessageId && (
+            await supabase
+              .from("messages")
+              .select("id")
+              .eq("chat_id", chat.id)
+              .eq("message_id", webhookMessageId)
+              .single()
+          ).data;
+
+          if (!isAiEcho) {
+            // Find agents bound to this instance with matching activation tags
+            const { data: agentBindings } = await supabase
+              .from("ai_agent_instances")
+              .select("ai_agents(activation_tag)")
+              .eq("instance_id", instance.id);
+
+            const matchingTags = (agentBindings || [])
+              .map((b: any) => b.ai_agents?.activation_tag)
+              .filter((tag: string) => tag && chat.tags.includes(tag));
+
+            for (const tag of matchingTags) {
+              waitUntil(
+                performHandoff({
+                  chatId: chat.id,
+                  activationTag: tag,
+                  instanceId: instance.id,
+                  remoteJid,
+                  supabase,
+                }).catch((err) => console.error("[Handoff] Error:", err))
+              );
+            }
+          }
         }
 
         // AI Agent processing (fire-and-forget — does not block webhook response)
