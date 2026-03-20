@@ -166,5 +166,38 @@ async function processBufferedMessages(
   // 10. Send split response with typing indicators
   await sendSplitResponse(evolutionClient, instanceName, remoteJid, aiResponse);
 
+  // 11. Record AI response in messages table so it appears in the frontend
+  const { data: chat } = await supabase
+    .from("chats")
+    .select("id")
+    .eq("instance_id", instanceId)
+    .eq("remote_jid", remoteJid)
+    .or("status.is.null,status.eq.open")
+    .single();
+
+  if (chat) {
+    await supabase.from("messages").insert({
+      chat_id: chat.id,
+      message_id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      from_me: true,
+      remote_jid: remoteJid,
+      message_type: "text",
+      content: aiResponse,
+      status: "sent",
+      timestamp: new Date().toISOString(),
+    });
+
+    await supabase
+      .from("chats")
+      .update({
+        last_message: aiResponse.substring(0, 100),
+        last_message_at: new Date().toISOString(),
+        last_message_from_me: true,
+        last_message_type: "text",
+        unread_count: 0,
+      })
+      .eq("id", chat.id);
+  }
+
   console.log(`[AI Agent] Response sent to ${remoteJid} via ${instanceName}`);
 }
