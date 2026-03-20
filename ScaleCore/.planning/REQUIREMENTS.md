@@ -99,13 +99,13 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGENT-01 | Phase 1 | Pending |
-| AGENT-02 | Phase 1 | Pending |
+| AGENT-01 | Phase 1 | Complete |
+| AGENT-02 | Phase 1 | Complete |
 | AGENT-03 | Phase 1 | Complete |
-| AGENT-04 | Phase 1 | Pending |
-| AGENT-05 | Phase 1 | Pending |
-| AGENT-06 | Phase 1 | Pending |
-| AGENT-07 | Phase 1 | Pending |
+| AGENT-04 | Phase 1 | Complete |
+| AGENT-05 | Phase 1 | Complete |
+| AGENT-06 | Phase 1 | Complete |
+| AGENT-07 | Phase 1 | Complete |
 | PIPE-01 | Phase 2 | Pending |
 | PIPE-02 | Phase 2 | Pending |
 | PIPE-03 | Phase 2 | Pending |
