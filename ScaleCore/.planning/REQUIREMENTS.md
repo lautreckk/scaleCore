@@ -19,7 +19,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Text Pipeline
 
-- [ ] **PIPE-01**: Webhook recebe mensagem de texto e roteia para o agente vinculado a instancia
+- [x] **PIPE-01**: Webhook recebe mensagem de texto e roteia para o agente vinculado a instancia
 - [x] **PIPE-02**: Buffer agrupa mensagens do mesmo lead em janela de 10 segundos antes de enviar para a IA (Upstash Redis)
 - [x] **PIPE-03**: Agente ignora mensagens de leads que nao possuem a tag de ativacao configurada
 - [x] **PIPE-04**: Agente ignora mensagens enviadas pelo proprio atendente (fromMe = true)
@@ -30,7 +30,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **MEM-01**: Historico de conversa persistido por lead/telefone no Supabase com sliding window de 50 mensagens
 - [x] **MEM-02**: Memoria foca nas mensagens mais recentes para evitar alucinacao em contextos longos
-- [ ] **MEM-03**: Usuario pode limpar historico de conversa de um lead via comando (ex: #limpar)
+- [x] **MEM-03**: Usuario pode limpar historico de conversa de um lead via comando (ex: #limpar)
 
 ### Media Processing (Inbound)
 
@@ -106,7 +106,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | AGENT-05 | Phase 1 | Complete |
 | AGENT-06 | Phase 1 | Complete |
 | AGENT-07 | Phase 1 | Complete |
-| PIPE-01 | Phase 2 | Pending |
+| PIPE-01 | Phase 2 | Complete |
 | PIPE-02 | Phase 2 | Complete |
 | PIPE-03 | Phase 2 | Complete |
 | PIPE-04 | Phase 2 | Complete |
@@ -114,7 +114,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | PIPE-06 | Phase 2 | Complete |
 | MEM-01 | Phase 2 | Complete |
 | MEM-02 | Phase 2 | Complete |
-| MEM-03 | Phase 2 | Pending |
+| MEM-03 | Phase 2 | Complete |
 | MEDIA-01 | Phase 4 | Pending |
 | MEDIA-02 | Phase 4 | Pending |
 | MEDIA-03 | Phase 4 | Pending |

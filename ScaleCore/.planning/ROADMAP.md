@@ -13,7 +13,7 @@ Substituir o workflow n8n externo por um sistema nativo de agentes IA dentro do 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Agent Foundation** - Database schema, CRUD de agentes, vinculacao a instancias WhatsApp e multi-tenancy
-- [ ] **Phase 2: Text Pipeline** - Buffer Redis, processamento LLM via OpenRouter, memoria de conversa, resposta inteligente e cobranca por wallet
+- [x] **Phase 2: Text Pipeline** - Buffer Redis, processamento LLM via OpenRouter, memoria de conversa, resposta inteligente e cobranca por wallet (completed 2026-03-20)
 - [ ] **Phase 3: Human Handoff** - Desativacao automatica da IA quando humano assume, keywords de escalation e reativacao manual
 - [ ] **Phase 4: Media** - Processamento de midia recebida (audio, imagem, PDF) e biblioteca de midia com envio decidido pela IA
 
@@ -89,6 +89,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Agent Foundation | 2/3 | Gap closure | - |
-| 2. Text Pipeline | 0/4 | Planned | - |
+| 2. Text Pipeline | 4/4 | Complete   | 2026-03-20 |
 | 3. Human Handoff | 0/1 | Not started | - |
 | 4. Media | 0/2 | Not started | - |
