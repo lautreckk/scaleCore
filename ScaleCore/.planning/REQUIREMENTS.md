@@ -40,8 +40,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Media Library (Outbound)
 
-- [ ] **LIB-01**: Usuario pode fazer upload de imagens, videos e documentos na biblioteca de midia do agente
-- [ ] **LIB-02**: Usuario pode adicionar descricao e nome a cada midia uploadada
+- [x] **LIB-01**: Usuario pode fazer upload de imagens, videos e documentos na biblioteca de midia do agente
+- [x] **LIB-02**: Usuario pode adicionar descricao e nome a cada midia uploadada
 - [x] **LIB-03**: Lista de midias disponiveis e injetada no prompt do sistema para a IA decidir quando enviar
 - [x] **LIB-04**: IA decide contextualmente quando enviar midia baseado no prompt e na conversa
 - [x] **LIB-05**: Sistema detecta marcadores de midia na resposta da IA e envia via Evolution API (imagem, video, audio, documento)
@@ -118,8 +118,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | MEDIA-01 | Phase 4 | Complete |
 | MEDIA-02 | Phase 4 | Complete |
 | MEDIA-03 | Phase 4 | Complete |
-| LIB-01 | Phase 4 | Pending |
-| LIB-02 | Phase 4 | Pending |
+| LIB-01 | Phase 4 | Complete |
+| LIB-02 | Phase 4 | Complete |
 | LIB-03 | Phase 4 | Complete |
 | LIB-04 | Phase 4 | Complete |
 | LIB-05 | Phase 4 | Complete |
