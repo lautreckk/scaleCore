@@ -18,6 +18,7 @@ export interface Database {
           model_id: string
           activation_tag: string
           tag_apply_mode: string
+          escalation_keywords: string[]
           is_active: boolean
           created_at: string | null
           updated_at: string | null
@@ -30,6 +31,7 @@ export interface Database {
           model_id: string
           activation_tag: string
           tag_apply_mode?: string
+          escalation_keywords?: string[]
           is_active?: boolean
           created_at?: string | null
           updated_at?: string | null
@@ -42,6 +44,7 @@ export interface Database {
           model_id?: string
           activation_tag?: string
           tag_apply_mode?: string
+          escalation_keywords?: string[]
           is_active?: boolean
           created_at?: string | null
           updated_at?: string | null

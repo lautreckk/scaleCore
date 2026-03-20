@@ -10,6 +10,7 @@ export const agentFormSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Tag deve conter apenas letras minusculas, numeros e hifens"),
   tag_apply_mode: z.enum(["new_only", "all_existing"]).default("new_only"),
   instance_ids: z.array(z.string().uuid()).default([]),
+  escalation_keywords: z.array(z.string().min(1).max(100)).default([]),
   is_active: z.boolean().default(true),
 });
 
