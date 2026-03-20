@@ -65,11 +65,13 @@ Exceptions: none
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.5 |
-| Label | 14px | 500 (medium) | 1.4 |
+| Label | 14px | 400 (regular) | 1.4 |
 | Heading | 20px | 600 (semibold) | 1.2 |
 | Display | 28px | 600 (semibold) | 1.2 |
 
 Font family: Inter, sans-serif (from tailwind.config.ts)
+
+Label is distinguished from Body by context and reduced line-height (1.4 vs 1.5). In implementation, labels may use uppercase or letter-spacing (e.g., `tracking-wide`) for additional visual distinction where needed.
 
 ---
 
