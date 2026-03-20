@@ -25,16 +25,16 @@ Usuarios criam e configuram agentes IA que respondem leads no WhatsApp de forma 
 
 - [x] CRUD de agentes IA (nome, prompt, modelo, configuracoes) — Validated in Phase 01: agent-foundation
 - [x] Vinculacao de agente a 1+ instancias WhatsApp — Validated in Phase 01: agent-foundation
-- [ ] Upload de midias (imagens, videos, links) que o agente pode disparar
+- [x] Upload de midias (imagens, videos, links) que o agente pode disparar — Validated in Phase 04: media
 - [ ] Buffer de mensagens com Redis (Upstash) — agrupa mensagens em janela de 10s
-- [ ] Processamento de midia recebida (vision para imagem, whisper para audio, extracao de PDF)
+- [x] Processamento de midia recebida (vision para imagem, whisper para audio, extracao de PDF) — Validated in Phase 04: media
 - [x] Controle por tag customizavel por agente — so responde leads com a tag configurada — Validated in Phase 01: agent-foundation
 - [x] Desativacao automatica — atendente responder remove a tag e IA para — Validated in Phase 03: human-handoff
 - [ ] Memoria de conversa persistente por lead/telefone
 - [ ] Envio inteligente — divide resposta em partes, detecta midia na resposta, envia com delay
 - [x] Lista curada de modelos OpenRouter (GPT-4o, Claude, Llama, etc) com preco estimado — Validated in Phase 01: agent-foundation
 - [ ] Cobranca via wallet centralizada por mensagem processada pela IA
-- [ ] IA decide quando enviar midias uploadadas (recebe lista no prompt do sistema)
+- [x] IA decide quando enviar midias uploadadas (recebe lista no prompt do sistema) — Validated in Phase 04: media
 
 ### Out of Scope
 
@@ -90,4 +90,4 @@ O webhook da Evolution API envia: `event`, `instance`, `data.key.remoteJid`, `da
 | Buffer de 10s fixo | Mesmo comportamento do n8n atual, comprovado em producao | — Pending |
 
 ---
-*Last updated: 2026-03-20 after Phase 03 (human-handoff) complete*
+*Last updated: 2026-03-20 after Phase 04 (media) complete — all milestone phases done*
