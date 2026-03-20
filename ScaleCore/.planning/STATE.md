@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-00-PLAN.md
-last_updated: "2026-03-20T17:42:55.698Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-20T17:45:22.297Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Plan: 2 of 4
 | Phase 03 P02 | 4min | 2 tasks | 3 files |
 | Phase 03 P03 | 8min | 3 tasks | 4 files |
 | Phase 04 P00 | 1min | 1 tasks | 4 files |
+| Phase 04 P01 | 3min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 03]: AI echo detection via DB lookup of webhook message_id prevents handoff on AI-sent messages
 - [Phase 03]: Extracted isEscalationMatch as pure function for direct unit testing without mocking
 - [Phase 04]: Followed existing it.todo() pattern from buffer.test.ts for media test stubs
+- [Phase 04]: ContentPart union type added to openrouter.ts, ChatMessage.content now string | ContentPart[]
+- [Phase 04]: FALLBACK_MEDIA_MODEL = openai/gpt-4o-mini for non-multimodal agent models
+- [Phase 04]: PDF text extraction capped at 4000 chars with truncation indicator
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T17:42:55.695Z
-Stopped at: Completed 04-00-PLAN.md
+Last session: 2026-03-20T17:45:22.293Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
