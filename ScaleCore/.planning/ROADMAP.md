@@ -12,7 +12,7 @@ Substituir o workflow n8n externo por um sistema nativo de agentes IA dentro do 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [x] **Phase 1: Agent Foundation** - Database schema, CRUD de agentes, vinculacao a instancias WhatsApp e multi-tenancy
+- [ ] **Phase 1: Agent Foundation** - Database schema, CRUD de agentes, vinculacao a instancias WhatsApp e multi-tenancy
 - [ ] **Phase 2: Text Pipeline** - Buffer Redis, processamento LLM via OpenRouter, memoria de conversa, resposta inteligente e cobranca por wallet
 - [ ] **Phase 3: Human Handoff** - Desativacao automatica da IA quando humano assume, keywords de escalation e reativacao manual
 - [ ] **Phase 4: Media** - Processamento de midia recebida (audio, imagem, PDF) e biblioteca de midia com envio decidido pela IA
@@ -28,11 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Usuario vincula e desvincula agentes de instancias WhatsApp sem afetar outros agentes
   3. Usuario configura tag de ativacao customizada por agente e escolhe se aplica em chats existentes ou apenas novos
   4. Usuario so ve e gerencia agentes do proprio tenant (dados isolados por RLS)
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
 - [x] 01-01-PLAN.md — Database schema, types, shared libs (models + validation), sidebar nav, shadcn installs
 - [x] 01-02-PLAN.md — API routes (CRUD + bulk tags), UI components (7), pages (3), human verification
+- [ ] 01-03-PLAN.md — Gap closure: fix bulk tag handler in create mode + migration verification
 
 ### Phase 2: Text Pipeline
 **Goal**: Agentes respondem mensagens de texto no WhatsApp de forma autonoma com buffer, memoria persistente e cobranca automatica via wallet
@@ -86,7 +87,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Agent Foundation | 2/2 | COMPLETE | 2026-03-20 |
+| 1. Agent Foundation | 2/3 | Gap closure | - |
 | 2. Text Pipeline | 0/3 | Not started | - |
 | 3. Human Handoff | 0/1 | Not started | - |
 | 4. Media | 0/2 | Not started | - |
