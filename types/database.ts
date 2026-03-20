@@ -67,6 +67,35 @@ export interface Database {
           created_at?: string | null
         }
       }
+      ai_conversation_messages: {
+        Row: {
+          id: string
+          remote_jid: string
+          instance_id: string
+          agent_id: string
+          role: "user" | "assistant" | "system"
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          remote_jid: string
+          instance_id: string
+          agent_id: string
+          role: "user" | "assistant" | "system"
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          remote_jid?: string
+          instance_id?: string
+          agent_id?: string
+          role?: "user" | "assistant" | "system"
+          content?: string
+          created_at?: string
+        }
+      }
       evolution_api_configs: {
         Row: {
           id: string
