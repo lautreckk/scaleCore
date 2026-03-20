@@ -26,6 +26,7 @@ import { InstanceSelector } from "@/components/agents/instance-selector";
 import { DeleteDialog } from "@/components/agents/delete-dialog";
 import { BulkTagDialog } from "@/components/agents/bulk-tag-dialog";
 import { toast } from "sonner";
+import { MediaLibrary } from "@/components/agents/media-library";
 import { Loader2, X } from "lucide-react";
 
 interface AgentFormProps {
@@ -424,6 +425,21 @@ export function AgentForm({ mode, agentId, defaultValues }: AgentFormProps) {
               )}
             />
           </div>
+
+          {/* Media Library (edit mode only) */}
+          {mode === "edit" && agentId && (
+            <div className="space-y-4">
+              <Separator />
+              <MediaLibrary agentId={agentId} />
+            </div>
+          )}
+
+          {/* Media Library notice (create mode) */}
+          {mode === "create" && (
+            <p className="text-sm text-muted-foreground">
+              Salve o agente primeiro para adicionar midias a biblioteca.
+            </p>
+          )}
 
           <Separator />
 
