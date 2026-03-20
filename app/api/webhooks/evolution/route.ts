@@ -1048,8 +1048,9 @@ export async function POST(request: NextRequest) {
         }
 
         // AI Agent processing (fire-and-forget — does not block webhook response)
-        // Skip: fromMe messages (PIPE-04), non-text messages, empty content
-        if (!fromMe && messageType === "text" && content && instance.evolution_config_id) {
+        // Skip: fromMe messages (PIPE-04), non-processable types, empty content/media
+        const AI_PROCESSABLE_TYPES = ["text", "image", "audio", "document"];
+        if (!fromMe && AI_PROCESSABLE_TYPES.includes(messageType) && (content || mediaUrl) && instance.evolution_config_id) {
           try {
             const { data: evoConfig } = await supabase
               .from("evolution_api_configs")
@@ -1074,6 +1075,8 @@ export async function POST(request: NextRequest) {
                   chatTags: (chat as any)?.tags || null,
                   supabase: supabase,
                   evolutionClient: aiEvolutionClient,
+                  messageType: messageType as "text" | "image" | "audio" | "document",
+                  mediaUrl: mediaUrl,
                 }).catch((err) => console.error("[AI Agent] Pipeline error:", err))
               );
             }

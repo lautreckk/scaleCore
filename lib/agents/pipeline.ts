@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import type { EvolutionApiClient } from "@/lib/evolution/client";
 import { addToBuffer, drainBuffer } from "./buffer";
 import { chatCompletion, ChatMessage } from "./openrouter";
+import type { ContentPart } from "./openrouter";
 import {
   getConversationHistory,
   saveConversationMessages,
@@ -10,6 +11,13 @@ import {
 import { checkAndDebitWallet } from "./billing";
 import { sendSplitResponse } from "./splitter";
 import { performHandoff } from "./handoff";
+import { processInboundMedia, isMultimodalModel } from "./media-processor";
+import {
+  buildSystemPromptWithMedia,
+  extractMediaMarkers,
+  stripMediaMarkers,
+  sendMediaFromLibrary,
+} from "./media-library";
 
 /**
  * Check if message content matches any escalation keyword.
@@ -30,6 +38,8 @@ interface ProcessMessageParams {
   chatTags: string[] | null;
   supabase: SupabaseClient;
   evolutionClient: EvolutionApiClient;
+  messageType?: "text" | "image" | "audio" | "document";
+  mediaUrl?: string | null;
 }
 
 export async function processAgentMessage(
@@ -44,6 +54,8 @@ export async function processAgentMessage(
     chatTags,
     supabase,
     evolutionClient,
+    messageType,
+    mediaUrl,
   } = params;
 
   // 1. Find active agents bound to this instance
@@ -81,9 +93,17 @@ export async function processAgentMessage(
     return;
   }
 
+  // 3.2. Handle media content description for escalation check
+  let effectiveContent = content;
+  if (messageType && messageType !== "text" && mediaUrl) {
+    // For media messages, use a descriptive placeholder for buffer
+    // The actual media processing happens in processBufferedMessages
+    effectiveContent = content || `[${messageType}]`;
+  }
+
   // 3.5. HAND-03: Escalation keyword detection
   const escalationKeywords: string[] = agent.escalation_keywords || [];
-  if (isEscalationMatch(content, escalationKeywords)) {
+  if (isEscalationMatch(effectiveContent, escalationKeywords)) {
     // Find chat ID for this conversation
     const { data: chatData } = await supabase
       .from("chats")
@@ -108,7 +128,7 @@ export async function processAgentMessage(
   }
 
   // 4. Add to buffer and wait for grouping window
-  const { isFirst } = await addToBuffer(instanceId, remoteJid, content);
+  const { isFirst } = await addToBuffer(instanceId, remoteJid, effectiveContent);
 
   if (!isFirst) {
     // Another invocation is already waiting — this message was added to the buffer
@@ -130,6 +150,8 @@ export async function processAgentMessage(
     agentSystemPrompt: agent.system_prompt,
     supabase,
     evolutionClient,
+    messageType,
+    mediaUrl,
   });
 }
 
@@ -143,6 +165,8 @@ interface ProcessBufferedParams {
   agentSystemPrompt: string;
   supabase: SupabaseClient;
   evolutionClient: EvolutionApiClient;
+  messageType?: "text" | "image" | "audio" | "document";
+  mediaUrl?: string | null;
 }
 
 async function processBufferedMessages(
@@ -158,6 +182,8 @@ async function processBufferedMessages(
     agentSystemPrompt,
     supabase,
     evolutionClient,
+    messageType,
+    mediaUrl,
   } = params;
 
   // 5. Drain buffer (acquires lock, returns concatenated messages)
@@ -176,12 +202,51 @@ async function processBufferedMessages(
   // 7. Load conversation history (last 50 messages, sliding window)
   const history = await getConversationHistory(supabase, remoteJid, instanceId);
 
+  // 7.5. Fetch agent's media library for prompt injection
+  const { data: mediaItems } = await supabase
+    .from("ai_agent_media")
+    .select("*")
+    .eq("agent_id", agentId)
+    .eq("is_active", true);
+
   // 8. Build messages array and call LLM
+  const systemPrompt = buildSystemPromptWithMedia(
+    agentSystemPrompt,
+    mediaItems || []
+  );
+
   const messages: ChatMessage[] = [
-    { role: "system", content: agentSystemPrompt },
+    { role: "system", content: systemPrompt },
     ...history,
-    { role: "user", content: bufferedContent },
   ];
+
+  // Handle media messages — build multimodal content for last user message
+  if (messageType && messageType !== "text" && mediaUrl) {
+    const { contentParts, fallbackText } = await processInboundMedia(
+      messageType as "audio" | "image" | "document",
+      mediaUrl,
+      bufferedContent !== `[${messageType}]` ? bufferedContent : undefined
+    );
+
+    if (isMultimodalModel(agentModelId)) {
+      // Use multimodal content parts directly
+      messages.push({ role: "user", content: contentParts });
+    } else {
+      // Fallback: use text description for non-multimodal models
+      if (fallbackText) {
+        messages.push({ role: "user", content: fallbackText });
+      } else {
+        // Need to get text description from multimodal model first
+        const { content: description } = await chatCompletion(
+          "openai/gpt-4o-mini",
+          [{ role: "user", content: contentParts }]
+        );
+        messages.push({ role: "user", content: description });
+      }
+    }
+  } else {
+    messages.push({ role: "user", content: bufferedContent });
+  }
 
   const { content: aiResponse } = await chatCompletion(agentModelId, messages);
 
@@ -190,18 +255,35 @@ async function processBufferedMessages(
     return;
   }
 
-  // 9. Save to conversation memory (both user message and AI response)
+  // 9.5. Extract and send media from library if AI included markers
+  const mediaMarkerIds = extractMediaMarkers(aiResponse);
+  const cleanResponse = stripMediaMarkers(aiResponse);
+
+  // 9. Save clean response (without markers) to conversation memory
   await saveConversationMessages(
     supabase,
     remoteJid,
     instanceId,
     agentId,
     bufferedContent,
-    aiResponse
+    cleanResponse
   );
 
-  // 10. Send split response with typing indicators
-  await sendSplitResponse(evolutionClient, instanceName, remoteJid, aiResponse);
+  // 10. Send text response (clean, no markers)
+  await sendSplitResponse(evolutionClient, instanceName, remoteJid, cleanResponse);
+
+  // 10.5. Send media files after text
+  if (mediaMarkerIds.length > 0) {
+    const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
+    await sendMediaFromLibrary(
+      mediaMarkerIds,
+      agentId,
+      supabase,
+      evolutionClient,
+      instanceName,
+      phoneNumber
+    );
+  }
 
   // 11. Record AI response in messages table so it appears in the frontend
   const { data: chat } = await supabase
@@ -219,7 +301,7 @@ async function processBufferedMessages(
       from_me: true,
       remote_jid: remoteJid,
       message_type: "text",
-      content: aiResponse,
+      content: cleanResponse,
       status: "sent",
       timestamp: new Date().toISOString(),
     });
@@ -227,7 +309,7 @@ async function processBufferedMessages(
     await supabase
       .from("chats")
       .update({
-        last_message: aiResponse.substring(0, 100),
+        last_message: cleanResponse.substring(0, 100),
         last_message_at: new Date().toISOString(),
         last_message_from_me: true,
         last_message_type: "text",
