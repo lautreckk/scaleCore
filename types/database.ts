@@ -1849,6 +1849,38 @@ export interface Database {
           created_at?: string
         }
       }
+      ai_agent_media: {
+        Row: {
+          id: string
+          agent_id: string
+          name: string
+          description: string
+          media_type: "image" | "video" | "audio" | "document"
+          file_url: string
+          mime_type: string
+          file_size: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          name: string
+          description?: string
+          media_type: "image" | "video" | "audio" | "document"
+          file_url: string
+          mime_type: string
+          file_size?: number
+          is_active?: boolean
+        }
+        Update: {
+          name?: string
+          description?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -1860,4 +1892,38 @@ export interface Database {
       [_ in never]: never
     }
   }
+}
+
+// ai_agent_media types
+export interface AiAgentMediaRow {
+  id: string;
+  agent_id: string;
+  name: string;
+  description: string;
+  media_type: "image" | "video" | "audio" | "document";
+  file_url: string;
+  mime_type: string;
+  file_size: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiAgentMediaInsert {
+  id?: string;
+  agent_id: string;
+  name: string;
+  description?: string;
+  media_type: "image" | "video" | "audio" | "document";
+  file_url: string;
+  mime_type: string;
+  file_size?: number;
+  is_active?: boolean;
+}
+
+export interface AiAgentMediaUpdate {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+  updated_at?: string;
 }
