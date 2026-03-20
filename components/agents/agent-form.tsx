@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,6 +42,7 @@ export function AgentForm({ mode, agentId, defaultValues }: AgentFormProps) {
   const [showBulkTagDialog, setShowBulkTagDialog] = useState(false);
   const [bulkTagCount, setBulkTagCount] = useState(0);
   const [applyingTags, setApplyingTags] = useState(false);
+  const savedAgentIdRef = useRef<string | null>(agentId ?? null);
 
   const form = useForm<AgentFormData>({
     resolver: zodResolver(agentFormSchema),
@@ -95,6 +96,7 @@ export function AgentForm({ mode, agentId, defaultValues }: AgentFormProps) {
 
       const result = await res.json();
       const savedAgentId = result.data?.id || agentId;
+      savedAgentIdRef.current = savedAgentId;
 
       toast.success(
         mode === "create"
@@ -131,14 +133,14 @@ export function AgentForm({ mode, agentId, defaultValues }: AgentFormProps) {
   };
 
   const handleBulkTagConfirm = async () => {
-    if (!agentId && mode === "create") {
+    const targetId = savedAgentIdRef.current;
+    if (!targetId) {
       router.push("/agentes");
       return;
     }
 
     setApplyingTags(true);
     try {
-      const targetId = agentId;
       const res = await fetch(`/api/agents/${targetId}/tags`, {
         method: "POST",
       });
