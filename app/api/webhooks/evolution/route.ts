@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createEvolutionClient } from "@/lib/evolution/client";
 import { decrypt } from "@/lib/encryption";
 import { processAgentMessage } from "@/lib/agents/pipeline";
+import { waitUntil } from "@vercel/functions";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -383,6 +384,8 @@ interface QRCodeData {
   code?: string;
   base64?: string;
 }
+
+export const maxDuration = 30; // AI pipeline needs ~15s (10s buffer + LLM call)
 
 export async function POST(request: NextRequest) {
   try {
@@ -1021,16 +1024,18 @@ export async function POST(request: NextRequest) {
                 apiKey: evoApiKey,
               });
 
-              processAgentMessage({
-                instanceId: instance.id,
-                instanceName: instanceName,
-                remoteJid: remoteJid,
-                content: content,
-                tenantId: tenantId,
-                chatTags: (chat as any)?.tags || null,
-                supabase: supabase,
-                evolutionClient: aiEvolutionClient,
-              }).catch((err) => console.error("[AI Agent] Pipeline error:", err));
+              waitUntil(
+                processAgentMessage({
+                  instanceId: instance.id,
+                  instanceName: instanceName,
+                  remoteJid: remoteJid,
+                  content: content,
+                  tenantId: tenantId,
+                  chatTags: (chat as any)?.tags || null,
+                  supabase: supabase,
+                  evolutionClient: aiEvolutionClient,
+                }).catch((err) => console.error("[AI Agent] Pipeline error:", err))
+              );
             }
           } catch (err) {
             console.error("[AI Agent] Failed to initialize pipeline:", err);

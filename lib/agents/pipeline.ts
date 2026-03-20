@@ -70,30 +70,30 @@ export async function processAgentMessage(
     return;
   }
 
-  // 4. Add to buffer
+  // 4. Add to buffer and wait for grouping window
   const { isFirst } = await addToBuffer(instanceId, remoteJid, content);
 
-  if (isFirst) {
-    // Schedule buffer processing after 10 seconds
-    setTimeout(async () => {
-      try {
-        await processBufferedMessages({
-          instanceId,
-          instanceName,
-          remoteJid,
-          tenantId,
-          agentId: agent.id,
-          agentModelId: agent.model_id,
-          agentSystemPrompt: agent.system_prompt,
-          supabase,
-          evolutionClient,
-        });
-      } catch (err) {
-        console.error("[AI Agent] Error processing buffered messages:", err);
-      }
-    }, 10_000);
+  if (!isFirst) {
+    // Another invocation is already waiting — this message was added to the buffer
+    console.log(`[AI Agent] Message buffered (not first), skipping processing for ${remoteJid}`);
+    return;
   }
-  // If not first, the existing setTimeout will pick up this message from the buffer
+
+  // Wait 10s for additional messages to arrive (buffer grouping window)
+  await new Promise((resolve) => setTimeout(resolve, 10_000));
+
+  // Process all buffered messages
+  await processBufferedMessages({
+    instanceId,
+    instanceName,
+    remoteJid,
+    tenantId,
+    agentId: agent.id,
+    agentModelId: agent.model_id,
+    agentSystemPrompt: agent.system_prompt,
+    supabase,
+    evolutionClient,
+  });
 }
 
 interface ProcessBufferedParams {
