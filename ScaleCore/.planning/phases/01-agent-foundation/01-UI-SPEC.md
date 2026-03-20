@@ -48,11 +48,11 @@ Exceptions: none
 | Role | Size | Weight | Line Height | Tailwind Class |
 |------|------|--------|-------------|----------------|
 | Body | 14px | 400 (regular) | 1.5 | `text-sm` |
-| Label | 14px | 500 (medium) | 1.4 | `text-sm font-medium` |
+| Label | 14px | 700 (bold) | 1.4 | `text-sm font-bold` |
 | Heading (page) | 24px | 700 (bold) | 1.2 | `text-2xl font-bold` |
-| Heading (section) | 18px | 500 (medium) | 1.3 | `text-lg font-medium` |
+| Heading (section) | 18px | 400 (regular) | 1.3 | `text-lg` |
 
-Source: Established pattern from existing pages (aquecimento, leads, settings). All tenant pages use `text-2xl font-bold` for page headings and `text-sm` for body/labels.
+Source: Consolidated to 2 weights (400, 700) matching the project's existing `font-bold` / `font-normal` Tailwind usage. Labels use bold to differentiate from body at the same size. Section headings use regular weight at a larger size for visual hierarchy without a third weight.
 
 ---
 
@@ -74,7 +74,7 @@ Accent reserved for:
 - Active/inactive toggle when active (Switch component)
 - Focus ring on inputs (`--ring`)
 - Tag preview badge when valid
-- Primary action in AlertDialog ("Confirmar" button in bulk tag dialog)
+- Primary action in AlertDialog ("Aplicar Tag" button in bulk tag dialog)
 
 ---
 
@@ -129,12 +129,12 @@ All copy in Brazilian Portuguese (pt-BR), consistent with existing product langu
 | Error state (duplicate tag) | "Essa tag ja esta sendo usada por outro agente. Escolha uma tag diferente." |
 | Delete confirmation title | "Excluir Agente" |
 | Delete confirmation body | "Tem certeza que deseja excluir o agente \"{name}\"? As tags nos chats serao mantidas, mas o agente nao podera mais ser reativado." |
-| Delete confirmation action | "Excluir" |
-| Delete confirmation cancel | "Cancelar" |
+| Delete confirmation action | "Excluir Agente" |
+| Delete confirmation cancel | "Manter Agente" |
 | Bulk tag dialog title | "Aplicar Tag em Chats Existentes" |
 | Bulk tag dialog body | "Aplicar tag \"{tag}\" em {count} chats das instancias selecionadas? Isso ativara o agente para todos esses leads." |
 | Bulk tag dialog action | "Aplicar Tag" |
-| Bulk tag dialog cancel | "Cancelar" |
+| Bulk tag dialog cancel | "Nao Aplicar" |
 | Toast: agent created | "Agente criado com sucesso" |
 | Toast: agent updated | "Agente atualizado com sucesso" |
 | Toast: agent deleted | "Agente excluido com sucesso" |
@@ -165,7 +165,7 @@ All copy in Brazilian Portuguese (pt-BR), consistent with existing product langu
 
 **Structure:**
 - Card with `--card` background, `--border` border, hover state with subtle brightness increase
-- Top row: Agent name (`text-lg font-medium text-white`) + Switch toggle (active/inactive) aligned right
+- Top row: Agent name (`text-lg text-white`) + Switch toggle (active/inactive) aligned right
 - Middle row: Model name as Badge (`text-xs`), tag as Badge with outline variant
 - Bottom row: Instance count (`text-sm text-muted-foreground`) + status indicator
 - Click anywhere on card (except Switch) navigates to `/agentes/[id]`
@@ -201,7 +201,7 @@ All copy in Brazilian Portuguese (pt-BR), consistent with existing product langu
 5. **Acoes**
    - Create: "Salvar Agente" primary button
    - Edit: "Salvar Agente" primary button + "Excluir Agente" destructive button (outline variant, right-aligned)
-   - Cancel: "Cancelar" ghost button, navigates back to `/agentes`
+   - Cancel: "Manter Agente" ghost button (on edit page) / back navigation (on create page), navigates to `/agentes`
 
 **States:**
 - Loading (edit page): Skeleton for entire form
@@ -214,15 +214,15 @@ All copy in Brazilian Portuguese (pt-BR), consistent with existing product langu
 - Uses `AlertDialog` component
 - Title: "Excluir Agente"
 - Body: Includes agent name interpolated
-- Cancel: secondary variant
-- Confirm: destructive variant ("Excluir")
+- Cancel: secondary variant ("Manter Agente")
+- Confirm: destructive variant ("Excluir Agente")
 
 ### 5. Bulk Tag Dialog (`bulk-tag-dialog.tsx`)
 
 - Uses `AlertDialog` component
 - Triggered when user selects "Todos os chats existentes" and saves
 - Shows count of affected chats (fetched from API before showing dialog)
-- Cancel: secondary variant
+- Cancel: secondary variant ("Nao Aplicar")
 - Confirm: primary variant ("Aplicar Tag")
 
 ---
