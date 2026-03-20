@@ -28,11 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Usuario vincula e desvincula agentes de instancias WhatsApp sem afetar outros agentes
   3. Usuario configura tag de ativacao customizada por agente e escolhe se aplica em chats existentes ou apenas novos
   4. Usuario so ve e gerencia agentes do proprio tenant (dados isolados por RLS)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Database schema, types, shared libs (models + validation), sidebar nav, shadcn installs
+- [ ] 01-02-PLAN.md — API routes (CRUD + bulk tags), UI components (6), pages (3), human verification
 
 ### Phase 2: Text Pipeline
 **Goal**: Agentes respondem mensagens de texto no WhatsApp de forma autonoma com buffer, memoria persistente e cobranca automatica via wallet
@@ -42,7 +42,7 @@ Plans:
   1. Lead envia texto no WhatsApp e recebe resposta da IA em mensagens separadas com delay natural e typing indicator
   2. Mensagens rapidas do mesmo lead sao agrupadas em janela de 10s antes de enviar para a IA
   3. Agente ignora leads sem a tag de ativacao e ignora mensagens do proprio atendente (fromMe)
-  4. IA mantém contexto da conversa ao longo de multiplas interacoes (memoria de 50 mensagens com sliding window)
+  4. IA mantem contexto da conversa ao longo de multiplas interacoes (memoria de 50 mensagens com sliding window)
   5. Creditos sao debitados do wallet por mensagem processada, com custo variavel por modelo, e agente para se wallet insuficiente
 **Plans**: TBD
 
@@ -86,7 +86,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Agent Foundation | 0/2 | Not started | - |
+| 1. Agent Foundation | 0/2 | Planning complete | - |
 | 2. Text Pipeline | 0/3 | Not started | - |
 | 3. Human Handoff | 0/1 | Not started | - |
 | 4. Media | 0/2 | Not started | - |
