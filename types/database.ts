@@ -9,6 +9,64 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      ai_agents: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          system_prompt: string
+          model_id: string
+          activation_tag: string
+          tag_apply_mode: string
+          is_active: boolean
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          name: string
+          system_prompt?: string
+          model_id: string
+          activation_tag: string
+          tag_apply_mode?: string
+          is_active?: boolean
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          name?: string
+          system_prompt?: string
+          model_id?: string
+          activation_tag?: string
+          tag_apply_mode?: string
+          is_active?: boolean
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
+      ai_agent_instances: {
+        Row: {
+          id: string
+          agent_id: string
+          instance_id: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          agent_id: string
+          instance_id: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          agent_id?: string
+          instance_id?: string
+          created_at?: string | null
+        }
+      }
       evolution_api_configs: {
         Row: {
           id: string
