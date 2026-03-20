@@ -21,6 +21,7 @@ import {
   Flame,
   CheckSquare,
   ShieldCheck,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ const navigation = [
   { name: "Tarefas", href: "/tarefas", icon: CheckSquare },
   { name: "Campanhas", href: "/campaigns", icon: Megaphone },
   { name: "Aquecimento", href: "/aquecimento", icon: Flame },
+  { name: "Agentes IA", href: "/agentes", icon: Bot },
   { name: "Automações", href: "/automations", icon: Zap },
   { name: "Meta Review", href: "/dashboard/meta-approval", icon: ShieldCheck, beta: true },
   { name: "Créditos", href: "/credits", icon: Wallet },
