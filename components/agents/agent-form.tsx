@@ -26,7 +26,7 @@ import { InstanceSelector } from "@/components/agents/instance-selector";
 import { DeleteDialog } from "@/components/agents/delete-dialog";
 import { BulkTagDialog } from "@/components/agents/bulk-tag-dialog";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 interface AgentFormProps {
   mode: "create" | "edit";
@@ -37,6 +37,7 @@ interface AgentFormProps {
 export function AgentForm({ mode, agentId, defaultValues }: AgentFormProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [keywordInput, setKeywordInput] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showBulkTagDialog, setShowBulkTagDialog] = useState(false);
@@ -53,6 +54,7 @@ export function AgentForm({ mode, agentId, defaultValues }: AgentFormProps) {
       activation_tag: "",
       tag_apply_mode: "new_only",
       instance_ids: [],
+      escalation_keywords: [],
       is_active: true,
       ...defaultValues,
     },
@@ -340,6 +342,64 @@ export function AgentForm({ mode, agentId, defaultValues }: AgentFormProps) {
                 </FormItem>
               )}
             />
+          </div>
+
+          <Separator />
+
+          {/* Section 3.5: Palavras de Escalacao (HAND-03) */}
+          <div className="space-y-4">
+            <h2 className="text-lg">Palavras de Escalacao</h2>
+
+            <div className="space-y-2">
+              <Input
+                placeholder="ex: falar com atendente"
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const trimmed = keywordInput.trim();
+                    if (!trimmed) {
+                      toast.error("Digite uma palavra antes de adicionar");
+                      return;
+                    }
+                    const current: string[] = form.getValues("escalation_keywords") || [];
+                    if (current.some((k) => k.toLowerCase() === trimmed.toLowerCase())) {
+                      toast.error("Essa palavra ja foi adicionada");
+                      return;
+                    }
+                    form.setValue("escalation_keywords", [...current, trimmed]);
+                    setKeywordInput("");
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use frases com 2+ palavras para evitar falsos positivos. Ex: &quot;falar com atendente&quot;, &quot;quero uma pessoa&quot;.
+              </p>
+            </div>
+
+            {(form.watch("escalation_keywords") || []).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {(form.watch("escalation_keywords") || []).map((kw: string, idx: number) => (
+                  <Badge key={idx} variant="secondary" className="gap-1">
+                    {kw}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = form.getValues("escalation_keywords") || [];
+                        form.setValue(
+                          "escalation_keywords",
+                          current.filter((_: string, i: number) => i !== idx)
+                        );
+                      }}
+                      className="ml-1 hover:text-foreground"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           <Separator />
