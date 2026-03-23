@@ -67,6 +67,35 @@ export const SCALECORE_FIELDS = [
 // ---------------------------------------------------------------------------
 
 /**
+ * Auto-detect field mapping when none is configured.
+ * Finds the title property → maps "name" to it. Then tries to match
+ * phone, email, etc. by their Notion property type.
+ */
+function buildAutoMapping(typeMap: Record<string, string>): Record<string, string> {
+  const mapping: Record<string, string> = {};
+
+  for (const [propName, propType] of Object.entries(typeMap)) {
+    if (propType === "title" && !mapping.name) {
+      mapping.name = propName;
+    } else if (propType === "phone_number" && !mapping.phone) {
+      mapping.phone = propName;
+    } else if (propType === "email" && !mapping.email) {
+      mapping.email = propName;
+    } else if ((propType === "select" || propType === "status") && !mapping.status) {
+      mapping.status = propName;
+    }
+  }
+
+  // If no title found, still map name to first available rich_text
+  if (!mapping.name) {
+    const richText = Object.entries(typeMap).find(([, t]) => t === "rich_text");
+    if (richText) mapping.name = richText[0];
+  }
+
+  return mapping;
+}
+
+/**
  * Build Notion properties using the REAL property types from the database.
  * No guessing by name — uses the type map from databases.retrieve().
  */
@@ -77,8 +106,14 @@ function buildProperties(
   const props: Record<string, unknown> = {};
   const typeMap = config.property_types ?? {};
 
+  // If no field_mapping configured, use auto-detect fallback by property type
+  const mapping: Record<string, string> =
+    Object.keys(config.field_mapping).length > 0
+      ? config.field_mapping
+      : buildAutoMapping(typeMap);
+
   // Field mapping: scalecore_field → notion_property_name
-  for (const [scaleField, notionProp] of Object.entries(config.field_mapping)) {
+  for (const [scaleField, notionProp] of Object.entries(mapping)) {
     const value = getFieldValue(lead, scaleField);
     if (value === null || value === undefined || value === "") continue;
 
@@ -91,8 +126,7 @@ function buildProperties(
   // Stage mapping: kanban stage_id → notion status value
   if (lead.stage_id && config.stage_mapping[lead.stage_id]) {
     const notionStatus = config.stage_mapping[lead.stage_id];
-    // Find which property is the stage target (mapped from "stage_name" field)
-    const stageProp = config.field_mapping["stage_name"];
+    const stageProp = mapping["stage_name"];
     if (stageProp) {
       const propType = typeMap[stageProp] ?? "select";
       props[stageProp] = formatValueForType(notionStatus, propType);
@@ -213,6 +247,7 @@ export class NotionSyncClient {
 
   /**
    * Sync leads to Notion. Deduplicates by phone or name.
+   * Auto-fetches property types if not cached in config.
    */
   async syncLeads(leads: LeadToSync[]): Promise<SyncMetrics> {
     const metrics: SyncMetrics = {
@@ -221,6 +256,16 @@ export class NotionSyncClient {
       skipped: 0,
       errors: [],
     };
+
+    // Auto-fetch property types if not cached
+    if (!this.config.property_types || Object.keys(this.config.property_types).length === 0) {
+      const info = await this.testConnection();
+      const types: Record<string, string> = {};
+      for (const p of info.properties) {
+        types[p.name] = p.type;
+      }
+      this.config.property_types = types;
+    }
 
     const existingPages = await this.fetchExistingPages();
 
