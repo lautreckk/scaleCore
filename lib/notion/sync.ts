@@ -28,7 +28,8 @@ export async function executeSyncForTenant(
       .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: true });
 
-    if (syncType !== "full" && config.last_sync_at) {
+    // Only incremental (cron) filters by last_sync_at; manual and full always sync everything
+    if (syncType === "incremental" && config.last_sync_at) {
       query = query.gt("updated_at", config.last_sync_at);
     }
 
