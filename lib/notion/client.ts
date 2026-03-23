@@ -1,8 +1,5 @@
-import { Client } from "@notionhq/client";
 import type {
   PageObjectResponse,
-  CreatePageParameters,
-  UpdatePageParameters,
 } from "@notionhq/client/build/src/api-endpoints";
 
 // ---------------------------------------------------------------------------
@@ -53,7 +50,7 @@ export interface NotionDatabaseInfo {
 function buildProperties(
   lead: LeadToSync,
   config: NotionSyncConfig
-): CreatePageParameters["properties"] {
+): Record<string, unknown> {
   const props: Record<string, unknown> = {};
 
   // Default field mapping if none configured
@@ -134,7 +131,7 @@ function buildProperties(
     };
   }
 
-  return props as CreatePageParameters["properties"];
+  return props;
 }
 
 function getFieldValue(
@@ -177,12 +174,10 @@ function extractPropertyText(prop: unknown): string | null {
 // ---------------------------------------------------------------------------
 
 export class NotionSyncClient {
-  private client: Client;
   private databaseId: string;
   private config: NotionSyncConfig;
 
   constructor(config: NotionSyncConfig) {
-    this.client = new Client({ auth: config.notion_api_key });
     this.databaseId = config.notion_database_id;
     this.config = config;
   }
@@ -191,20 +186,39 @@ export class NotionSyncClient {
    * Test connection: reads the database and returns its name + properties.
    */
   async testConnection(): Promise<NotionDatabaseInfo> {
-    const db = await this.client.databases.retrieve({
-      database_id: this.databaseId,
-    });
-
-    const dbResponse = db as unknown as {
-      title?: Array<{ plain_text?: string }>;
-      properties?: Record<string, { name: string }>;
-    };
+    const db = await this.notionFetch(`/databases/${this.databaseId}`, "GET");
 
     const name =
-      dbResponse.title?.[0]?.plain_text ?? "Sem nome";
-    const properties = Object.keys(dbResponse.properties ?? {});
+      db.title?.[0]?.plain_text ?? "Sem nome";
+    const properties = Object.keys(db.properties ?? {});
 
     return { name, properties };
+  }
+
+  /**
+   * Direct REST calls to Notion API with stable version header.
+   * Avoids SDK v5 breaking changes with dataSources vs databases.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async notionFetch(path: string, method: string, body?: unknown): Promise<any> {
+    const res = await fetch(`https://api.notion.com/v1${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${this.config.notion_api_key}`,
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        (err as Record<string, unknown>).message as string || `Notion API ${res.status}: ${res.statusText}`
+      );
+    }
+
+    return res.json();
   }
 
   /**
@@ -229,14 +243,13 @@ export class NotionSyncClient {
 
         if (match) {
           // Update existing page
-          await this.client.pages.update({
-            page_id: match.id,
-            properties: properties as UpdatePageParameters["properties"],
+          await this.notionFetch(`/pages/${match.id}`, "PATCH", {
+            properties,
           });
           metrics.updated++;
         } else {
           // Create new page
-          await this.client.pages.create({
+          await this.notionFetch("/pages", "POST", {
             parent: { database_id: this.databaseId },
             properties,
           });
@@ -264,22 +277,24 @@ export class NotionSyncClient {
     const pages: PageObjectResponse[] = [];
     let cursor: string | undefined;
 
-    // Paginate through all pages (max ~2000 for safety)
     for (let i = 0; i < 20; i++) {
-      const response = await this.client.dataSources.query({
-        data_source_id: this.databaseId,
-        start_cursor: cursor,
-        page_size: 100,
-      });
+      const body: Record<string, unknown> = { page_size: 100 };
+      if (cursor) body.start_cursor = cursor;
 
-      for (const page of response.results) {
+      const data = await this.notionFetch(
+        `/databases/${this.databaseId}/query`,
+        "POST",
+        body
+      );
+
+      for (const page of data.results) {
         if ("properties" in page) {
-          pages.push(page as PageObjectResponse);
+          pages.push(page as unknown as PageObjectResponse);
         }
       }
 
-      if (!response.has_more || !response.next_cursor) break;
-      cursor = response.next_cursor;
+      if (!data.has_more || !data.next_cursor) break;
+      cursor = data.next_cursor;
     }
 
     return pages;
