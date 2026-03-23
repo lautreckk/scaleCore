@@ -23,6 +23,8 @@ export async function executeSyncForTenant(
       notion_database_id: config.notion_database_id,
       stage_mapping: config.stage_mapping ?? {},
       field_mapping: config.field_mapping ?? {},
+      property_types: config.property_types ?? {},
+      defaults_mapping: config.defaults_mapping ?? {},
       default_operation: config.default_operation,
       default_responsible: config.default_responsible,
     });

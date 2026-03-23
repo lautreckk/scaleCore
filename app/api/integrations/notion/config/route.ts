@@ -88,6 +88,8 @@ export async function PUT(request: NextRequest) {
       sync_interval_minutes,
       stage_mapping,
       field_mapping,
+      property_types,
+      defaults_mapping,
       default_operation,
       default_responsible,
     } = body;
@@ -114,6 +116,8 @@ export async function PUT(request: NextRequest) {
       sync_interval_minutes: sync_interval_minutes ?? 360,
       stage_mapping: stage_mapping ?? {},
       field_mapping: field_mapping ?? {},
+      property_types: property_types ?? {},
+      defaults_mapping: defaults_mapping ?? {},
       default_operation: default_operation || null,
       default_responsible: default_responsible || null,
       updated_at: new Date().toISOString(),

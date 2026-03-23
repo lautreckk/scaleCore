@@ -14,6 +14,8 @@ CREATE TABLE notion_sync_config (
   sync_interval_minutes INTEGER DEFAULT 360,
   stage_mapping JSONB DEFAULT '{}',
   field_mapping JSONB DEFAULT '{}',
+  property_types JSONB DEFAULT '{}',
+  defaults_mapping JSONB DEFAULT '{}',
   default_operation TEXT,
   default_responsible TEXT,
   last_sync_at TIMESTAMPTZ,
