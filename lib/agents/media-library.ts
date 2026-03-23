@@ -24,7 +24,7 @@ ${catalog}`;
 }
 
 export function extractMediaMarkers(text: string): string[] {
-  const matches = [...text.matchAll(MEDIA_MARKER_REGEX)];
+  const matches = Array.from(text.matchAll(MEDIA_MARKER_REGEX));
   return matches.map((m) => m[1]);
 }
 

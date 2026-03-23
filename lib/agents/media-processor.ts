@@ -1,4 +1,5 @@
-import pdfParse from "pdf-parse";
+import * as pdfParseModule from "pdf-parse";
+const pdfParse = (pdfParseModule as any).default ?? pdfParseModule; // eslint-disable-line @typescript-eslint/no-explicit-any
 import type { ContentPart } from "./openrouter";
 
 const PDF_TEXT_LIMIT = 4000;

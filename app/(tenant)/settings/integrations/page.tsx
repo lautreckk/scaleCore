@@ -38,6 +38,7 @@ import {
   Webhook,
   MessageSquare,
   ArrowRight,
+  BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { EvolutionServerCard } from "@/components/settings/evolution-server-card";
@@ -463,6 +464,26 @@ export default function IntegrationsPage() {
                 <CardTitle>WhatsApp Meta (Oficial)</CardTitle>
                 <CardDescription>
                   Conecte numeros oficiais do WhatsApp Business via Meta Embedded Signup
+                </CardDescription>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </CardHeader>
+        </Card>
+      </Link>
+
+      {/* Notion Integration */}
+      <Link href="/settings/integrations/notion" className="block group">
+        <Card className="border-purple-500/20 hover:border-purple-500/40 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-purple-500" />
+              </div>
+              <div>
+                <CardTitle>Notion</CardTitle>
+                <CardDescription>
+                  Sincronize leads e kanban com suas databases do Notion
                 </CardDescription>
               </div>
             </div>
