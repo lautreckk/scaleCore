@@ -53,9 +53,9 @@ export async function POST(request: NextRequest) {
 
     if (logError) throw logError;
 
-    // Return immediately, run sync in background
+    // Return immediately, run sync in background with admin client
     waitUntil(
-      executeSyncForTenant(supabase, tenantUser.tenant_id, config, log.id, syncType)
+      executeSyncForTenant(tenantUser.tenant_id, config, log.id, syncType)
     );
 
     return NextResponse.json({

@@ -1,14 +1,20 @@
+import { createAdminClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/encryption";
 import { NotionSyncClient, type LeadToSync } from "@/lib/notion/client";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/**
+ * Executes Notion sync for a specific tenant.
+ * Uses admin client (service role) to bypass RLS — safe because tenant_id
+ * is already validated by the caller and used in every query filter.
+ */
 export async function executeSyncForTenant(
-  supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
   tenantId: string,
   config: any, // eslint-disable-line @typescript-eslint/no-explicit-any
   logId: string,
   syncType: string
 ) {
+  const supabase = await createAdminClient();
+
   try {
     const apiKey = decrypt(config.notion_api_key);
 
@@ -21,14 +27,13 @@ export async function executeSyncForTenant(
       default_responsible: config.default_responsible,
     });
 
-    // Fetch leads — incremental (since last_sync_at) or full
+    // Fetch leads — incremental (cron) filters by last_sync_at; manual/full syncs everything
     let query = supabase
       .from("leads")
       .select("id, name, email, phone, company, status, tags, custom_fields, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: true });
 
-    // Only incremental (cron) filters by last_sync_at; manual and full always sync everything
     if (syncType === "incremental" && config.last_sync_at) {
       query = query.gt("updated_at", config.last_sync_at);
     }
@@ -51,7 +56,7 @@ export async function executeSyncForTenant(
       if (kanbanItems) {
         const stageMap = new Map<string, { stage_id: string; stage_name: string }>();
         for (const item of kanbanItems) {
-          const stage = item.kanban_stages as { id: string; name: string } | null;
+          const stage = item.kanban_stages as unknown as { id: string; name: string } | null;
           if (stage) {
             stageMap.set(item.entity_id, {
               stage_id: stage.id,

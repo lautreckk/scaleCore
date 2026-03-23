@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
       if (log) {
         waitUntil(
           executeSyncForTenant(
-            supabase,
             config.tenant_id,
             config,
             log.id,
