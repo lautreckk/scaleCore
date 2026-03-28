@@ -136,8 +136,8 @@ export async function processAgentMessage(
     return;
   }
 
-  // Wait 10s for additional messages to arrive (buffer grouping window)
-  await new Promise((resolve) => setTimeout(resolve, 10_000));
+  // Wait 3s for additional messages to arrive (buffer grouping window)
+  await new Promise((resolve) => setTimeout(resolve, 3_000));
 
   // Process all buffered messages
   await processBufferedMessages({

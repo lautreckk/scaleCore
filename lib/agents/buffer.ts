@@ -16,7 +16,7 @@ export async function addToBuffer(
 
   const pipeline = redis.pipeline();
   pipeline.rpush(bufferKey, content);
-  pipeline.expire(bufferKey, 15); // 15s TTL (10s window + 5s safety margin)
+  pipeline.expire(bufferKey, 8); // 8s TTL (3s window + 5s safety margin)
   pipeline.llen(bufferKey);
 
   const results = await pipeline.exec();
