@@ -1,6 +1,9 @@
-import * as pdfParseModule from "pdf-parse";
-const pdfParse = (pdfParseModule as any).default ?? pdfParseModule; // eslint-disable-line @typescript-eslint/no-explicit-any
 import type { ContentPart } from "./openrouter";
+
+async function loadPdfParse() {
+  const mod = await import("pdf-parse");
+  return (mod as any).default ?? mod; // eslint-disable-line @typescript-eslint/no-explicit-any
+}
 
 const PDF_TEXT_LIMIT = 4000;
 
@@ -75,6 +78,7 @@ export async function processInboundMedia(
     // PDF extraction — text-only, no multimodal needed
     const response = await fetch(mediaUrl);
     const buffer = Buffer.from(await response.arrayBuffer());
+    const pdfParse = await loadPdfParse();
     const data = await pdfParse(buffer);
     let extractedText = data.text.trim();
     if (extractedText.length > PDF_TEXT_LIMIT) {
